@@ -7,23 +7,23 @@
 }
 
 :root {
-  --bg-primary: #0f0f23;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
-  --bg-elevated: #1f2937;
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
-  --accent-tertiary: #06b6d4;
-  --success: #10b981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
+  --bg-primary: #0a0a0b; 
+  --bg-secondary: #121214;
+  --bg-card: #161618;
+  --bg-elevated: #1c1c1f;
+  --accent-primary: #2e5bff; /* Electric Cobalt - Mühendislik mavisi */
+  --accent-secondary: #3f3f46; /* Nötr bir gri */
+  --accent-tertiary: #52525b;
+  --success: #00c078; /* Precision Emerald */
+  --danger: #ff3b3b; /* Industrial Red */
+  --warning: #ff9500; /* Caution Orange */
   --text-primary: #f9fafb;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(255, 255, 255, 0.12);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --border-subtle: #27272a;
+  --border-medium: #3f3f46;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
   --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
   --radius-sm: 6px;
@@ -32,7 +32,9 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+ font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
   background: var(--bg-primary);
   min-height: 100vh;
   color: var(--text-primary);
@@ -132,6 +134,8 @@ header p {
   box-shadow: var(--shadow-md);
 }
 
+
+
 .section h2 {
   font-size: 1.1rem;
   font-weight: 600;
@@ -190,6 +194,12 @@ header p {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: var(--shadow-sm);
+}
+
+.question-form button:hover {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  transform: none; /* Zıplama efektini kaldır */
 }
 
 .question-form button:hover:not(:disabled), .section button[type="submit"]:hover:not(:disabled) {

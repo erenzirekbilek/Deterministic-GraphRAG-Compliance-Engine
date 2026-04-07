@@ -67,6 +67,13 @@ function ComplianceQA() {
     }
   };
 
+  const decision = response?.llm_raw_output?.decision || response?.llm_raw_output?.decision?.toUpperCase() || 'UNKNOWN';
+  const isApproved = decision === 'APPROVED' || decision === 'approve';
+  const finalAnswer = response?.llm_raw_output?.final_answer || response?.llm_raw_output?.reason || '';
+  const validationLogic = response?.llm_raw_output?.validation_logic || [];
+  const graphUpdates = response?.llm_raw_output?.graph_updates || {};
+  const sourceCitation = response?.llm_raw_output?.source_citation || {};
+
   return (
     <div className="tab-content">
       <form onSubmit={handleSubmit} className="question-form">
@@ -84,18 +91,67 @@ function ComplianceQA() {
       {error && <div className="error">{error}</div>}
 
       {response && (
-        <div className={`result ${response.approved ? 'approved' : 'rejected'}`}>
+        <div className={`result ${isApproved ? 'approved' : 'rejected'}`}>
           <div className="status-badge">
-            {response.approved ? '✓ APPROVED' : '✗ REJECTED'}
+            {isApproved ? '✓ APPROVED' : '✗ REJECTED'}
           </div>
+          
           <div className="details">
             <h3>Question:</h3>
             <p>{response.question}</p>
-            <h3>LLM Output:</h3>
-            <p>Decision: {response.llm_raw_output?.decision}</p>
-            <p>Reason: {response.llm_raw_output?.reason}</p>
-            <h3>Validation:</h3>
-            <p className="validation-reason">{response.validation_reason}</p>
+            
+            <h3>Final Answer:</h3>
+            <p className="final-answer">{finalAnswer}</p>
+            
+            {validationLogic.length > 0 && (
+              <div className="validation-section">
+                <h3>Validation Steps:</h3>
+                <div className="validation-steps">
+                  {validationLogic.map((step, i) => (
+                    <div 
+                      key={i} 
+                      className={`validation-step ${step.status?.toLowerCase() || 'passed'}`}
+                      style={{ animationDelay: `${i * 0.15}s` }}
+                    >
+                      <span className="step-icon">
+                        {step.status === 'PASSED' || step.status === 'passed' ? '✓' : '✗'}
+                      </span>
+                      <span className="step-name">{step.step}</span>
+                      <span className="step-detail">{step.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {(graphUpdates.highlight_nodes?.length > 0 || graphUpdates.highlight_edges?.length > 0) && (
+              <div className="graph-highlights">
+                <h3>Graph Highlights:</h3>
+                <div className="highlight-tags">
+                  {graphUpdates.highlight_nodes?.map((node, i) => (
+                    <span key={`node-${i}`} className="highlight-node">{node}</span>
+                  ))}
+                  {graphUpdates.highlight_edges?.map((edge, i) => (
+                    <span key={`edge-${i}`} className="highlight-edge">{edge}</span>
+                  ))}
+                  {graphUpdates.violation_edge && (
+                    <span className="violation-edge">{graphUpdates.violation_edge}</span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {(sourceCitation.file || sourceCitation.exact_quote) && (
+              <div className="source-citation">
+                <h3>Source Citation:</h3>
+                {sourceCitation.file && <p className="citation-file">File: {sourceCitation.file}</p>}
+                {sourceCitation.page && <p className="citation-page">Page: {sourceCitation.page}</p>}
+                {sourceCitation.exact_quote && (
+                  <blockquote className="citation-quote">"{sourceCitation.exact_quote}"</blockquote>
+                )}
+              </div>
+            )}
+            
             <h3>Rules Applied:</h3>
             <div className="rules-list">
               {response.graph_rules_applied?.map((rule, i) => (

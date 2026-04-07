@@ -422,3 +422,170 @@ header p {
   color: #ddd;
   margin-bottom: 10px;
 }
+
+/* Validation Steps */
+.validation-section {
+  margin-top: 20px;
+}
+
+.validation-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.validation-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  animation: slideIn 0.3s ease-out;
+}
+
+.validation-step.passed {
+  border-left: 3px solid #22c55e;
+}
+
+.validation-step.failed {
+  border-left: 3px solid #ef4444;
+}
+
+.step-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.validation-step.passed .step-icon {
+  background: #22c55e;
+  color: #000;
+}
+
+.validation-step.failed .step-icon {
+  background: #ef4444;
+  color: #fff;
+}
+
+.step-name {
+  font-weight: 600;
+  color: #fff;
+}
+
+.step-detail {
+  color: #aaa;
+  font-size: 0.9rem;
+}
+
+/* Graph Highlights */
+.graph-highlights {
+  margin-top: 20px;
+}
+
+.highlight-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.highlight-node {
+  background: rgba(124, 58, 237, 0.4);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid #7c3aed;
+  animation: pulse 2s infinite;
+}
+
+.highlight-edge {
+  background: rgba(0, 212, 255, 0.3);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 1px solid #00d4ff;
+}
+
+.violation-edge {
+  background: rgba(239, 68, 68, 0.4);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  border: 2px solid #ef4444;
+  font-weight: bold;
+  animation: glow 1.5s infinite;
+}
+
+/* Source Citation */
+.source-citation {
+  margin-top: 20px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border-left: 3px solid #fbbf24;
+}
+
+.citation-file, .citation-page {
+  color: #888;
+  font-size: 0.85rem;
+  margin-bottom: 5px;
+}
+
+.citation-quote {
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border-left: 3px solid #fbbf24;
+  font-style: italic;
+  color: #ddd;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Final Answer */
+.final-answer {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #fff;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+/* Animations */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(124, 58, 237, 0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
+  }
+}

@@ -6,21 +6,69 @@ from app.models.schemas import ComplianceResponse
 
 logger = logging.getLogger(__name__)
 
-TRANSLATION_PROMPT = """You are a compliance answer translator. 
+AUDITOR_SYSTEM_PROMPT = """You are a Deterministic Compliance Auditor. Your mission is not just to answer user queries, but to prove every answer by grounding it in strict Neo4j ontological rules.
+
+CORE RULES:
+1. Zero Speculation: Never guess. If a relationship does not exist in the ontology, return 'Data not found.'
+2. Step-by-Step Logic: Always break down the answer into 'Validation Steps.'
+3. Visual Mapping: Explicitly specify which nodes and edges must be highlighted for visualization.
+4. Source Grounding: Extract the exact quote from the document for verification.
+5. Strict JSON: Output must strictly follow the defined JSON schema. DO NOT include conversational filler, greetings, or introductory phrases (e.g., 'Sure, I can help with that').
+
+OUTPUT SCHEMA:
+{
+  "decision": "APPROVED | REJECTED",
+  "final_answer": "A natural yet precise and definitive explanation...",
+  "validation_logic": [
+    { "step": "Authority Check", "status": "PASSED | FAILED", "detail": "..." }
+  ],
+  "graph_updates": {
+    "highlight_nodes": ["entity1", "entity2"],
+    "highlight_edges": ["HAS_AUTHORITY"],
+    "violation_edge": "IS_PROHIBITED"
+  },
+  "source_citation": {
+    "file": "document.pdf",
+    "page": 1,
+    "exact_quote": "...",
+    "coordinates": [0, 0, 0, 0]
+  }
+}"""
+
+TRANSLATION_PROMPT = """You are a Deterministic Compliance Auditor.
 
 The system has deterministically computed the following result from the knowledge base:
 {deterministic_result}
 
 Question: {question}
 
-Your task is to translate this technical result into a human-readable response.
-- If YES (deterministic_result = true): Confirm the action is allowed with the reason
-- If NO (deterministic_result = false): Explain why the action is not allowed
-- If UNKNOWN: Explain what information is missing
+Your task is to translate this technical result into a human-readable response following the STRICT JSON schema below. Do not include any conversational filler.
 
-Respond ONLY with this JSON format:
-{{"decision": "approve|reject|unknown", "reason": "human-readable explanation"}}
-"""
+REQUIRED OUTPUT (valid JSON only):
+{{
+  "decision": "APPROVED | REJECTED",
+  "final_answer": "A natural yet precise and definitive explanation...",
+  "validation_logic": [
+    {{ "step": "Check Name", "status": "PASSED | FAILED", "detail": "..." }}
+  ],
+  "graph_updates": {{
+    "highlight_nodes": ["entity1", "entity2"],
+    "highlight_edges": ["HAS_AUTHORITY"],
+    "violation_edge": null
+  }},
+  "source_citation": {{
+    "file": "knowledge_base",
+    "page": 1,
+    "exact_quote": "...",
+    "coordinates": [0, 0, 0, 0]
+  }}
+}}
+
+IMPORTANT: 
+- Return ONLY valid JSON, no markdown, no explanations
+- Every field in the schema must be present
+- decision must be exactly "APPROVED" or "REJECTED"
+- validation_logic must be an array with at least one validation step"""
 
 
 class DeterministicComplianceService:

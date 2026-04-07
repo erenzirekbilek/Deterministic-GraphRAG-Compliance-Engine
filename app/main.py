@@ -6,10 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.api.routes import router
+from app.api.pdf_routes import router as pdf_router
 from app.graph.neo4j_client import Neo4jClient
-from app.graph.queries import SEED_RULES
+from app.graph.queries import SEED_RULES, SEED_ONTOLOGY
 from app.services.graphrag_service import GraphRAGService
 from app.services.validation_service import ValidationService
+from app.services.ontology_extraction_service import OntologyExtractionService
 from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
 
@@ -21,6 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 graphrag_service: GraphRAGService = None
+ontology_service: OntologyExtractionService = None
 
 
 def build_llm_adapter():
@@ -35,9 +38,9 @@ def build_llm_adapter():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graphrag_service
+    global graphrag_service, ontology_service
 
-    logger.info("Starting up GraphRAG Compliance Engine...")
+    logger.info("Starting up Deterministic GraphRAG Compliance Engine...")
 
     graph = Neo4jClient(
         uri=os.getenv("NEO4J_URI"),
@@ -49,9 +52,17 @@ async def lifespan(app: FastAPI):
     if not existing:
         logger.info("No rules found — seeding graph with default compliance rules...")
         graph.run_raw(SEED_RULES)
-        logger.info("Graph seeded successfully.")
+        logger.info("Rules seeded successfully.")
     else:
         logger.info("Graph already has %d rules.", len(existing))
+
+    ontology = graph.get_ontology_schema()
+    if not ontology:
+        logger.info("No ontology found — seeding ontology schema...")
+        graph.run_raw(SEED_ONTOLOGY)
+        logger.info("Ontology seeded successfully.")
+    else:
+        logger.info("Ontology already exists with %d entity types.", len(ontology))
 
     llm = build_llm_adapter()
 
@@ -63,7 +74,13 @@ async def lifespan(app: FastAPI):
         validation=validation
     )
 
+    ontology_service = OntologyExtractionService(
+        llm=llm,
+        graph=graph
+    )
+
     logger.info("GraphRAG service ready. LLM provider: %s", os.getenv("LLM_PROVIDER"))
+    logger.info("Ontology extraction service ready.")
     yield
 
     graph.close()
@@ -72,8 +89,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Deterministic GraphRAG Compliance Engine",
-    description="LLM answers compliance questions; Neo4j graph validates the answers deterministically.",
-    version="0.1.0-mvp",
+    description="Text-to-Ontology extraction with deterministic validation. "
+                "Maps legal/compliance text to pre-defined schema in Neo4j.",
+    version="0.2.0-ontology",
     lifespan=lifespan
 )
 
@@ -86,12 +104,19 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+app.include_router(pdf_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])
 def root():
     return {
-        "name": "GraphRAG Compliance Engine",
-        "version": "0.1.0-mvp",
-        "docs": "/docs"
+        "name": "Deterministic GraphRAG Compliance Engine",
+        "version": "0.2.0-ontology",
+        "docs": "/docs",
+        "features": [
+            "Text-to-Ontology extraction",
+            "Entity mapping to schema",
+            "Relationship validation against ontology",
+            "Rejection of invalid extractions"
+        ]
     }

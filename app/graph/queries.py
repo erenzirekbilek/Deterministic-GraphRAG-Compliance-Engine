@@ -1,24 +1,116 @@
-GET_RULES_BY_TOPIC = """
-MATCH (r:Rule)-[:APPLIES_TO]->(t:Topic {name: $topic})
-RETURN r.id AS id, r.description AS description,
-       r.prohibited_keywords AS prohibited_keywords, r.severity AS severity
-ORDER BY r.severity DESC
+GET_ONTOLOGY_SCHEMA = """
+MATCH (n:EntityType)
+RETURN n.name AS entity_name, n.description AS description
+ORDER BY n.name
 """
 
-GET_ALL_RULES = """
-MATCH (r:Rule)
-RETURN r.id AS id, r.description AS description,
-       r.prohibited_keywords AS prohibited_keywords, r.severity AS severity
+GET_RELATIONSHIP_TYPES = """
+MATCH (r:RelationshipType)
+RETURN r.name AS rel_name, r.source_types AS source_types, 
+       r.target_types AS target_types, r.description AS description
+ORDER BY r.name
 """
 
-GET_ROLE_PERMISSIONS = """
-MATCH (role:Role {name: $role})-[rel]->(action:Action)
-RETURN type(rel) AS permission_type, action.name AS action, action.limit AS limit
+EXTRACT_ENTITIES_QUERY = """
+MATCH (e:ExtractedEntity {document_id: $document_id})
+RETURN e.name AS name, e.entity_type AS entity_type, 
+       e.mention AS mention, e.confidence AS confidence
 """
 
-CHECK_ROLE_CAN_DO = """
-MATCH (role:Role {name: $role})-[:CAN_DO]->(action:Action {name: $action})
-RETURN count(*) > 0 AS allowed
+EXTRACT_RELATIONSHIPS_QUERY = """
+MATCH (e1:ExtractedEntity {document_id: $document_id})-[r:EXTRACTED_RELATIONSHIP]->(e2:ExtractedEntity)
+RETURN e1.name AS source, e2.name AS target, 
+       type(r) AS relationship, r.justification AS justification
+"""
+
+VALIDATE_EXTRACTION = """
+MATCH (rt:RelationshipType {name: $relationship})
+RETURN rt.source_types AS valid_sources, rt.target_types AS valid_targets,
+       rt.is_valid AS is_valid
+"""
+
+SEED_ONTOLOGY = """
+// Entity Types (Ontology Schema)
+MERGE (et1:EntityType {name: "Authority"})
+SET et1.description = "A person or role that has power to make decisions",
+    et1.required = true
+
+MERGE (et2:EntityType {name: "Precondition"})
+SET et2.description = "A condition that must be satisfied before an action",
+    et2.required = true
+
+MERGE (et3:EntityType {name: "Obligation"})
+SET et3.description = "A requirement that a party must fulfill",
+    et3.required = true
+
+MERGE (et4:EntityType {name: "ProhibitedAction"})
+SET et4.description = "An action that is explicitly forbidden",
+    et4.required = true
+
+MERGE (et5:EntityType {name: "Condition"})
+SET et5.description = "A conditional clause that modifies a rule",
+    et5.required = false
+
+MERGE (et6:EntityType {name: "Party"})
+SET et6.description = "A person, organization or role mentioned in the text",
+    et6.required = true
+
+MERGE (et7:EntityType {name: "Action"})
+SET et7.description = "An activity or task that can be performed",
+    et7.required = true
+
+// Relationship Types (Valid connections between entities)
+MERGE (rt1:RelationshipType {name: "HAS_AUTHORITY"})
+SET rt1.source_types = ["Party"], rt1.target_types = ["Action"],
+    rt1.description = "Party has authority to perform an action",
+    rt1.is_valid = true
+
+MERGE (rt2:RelationshipType {name: "REQUIRES_PRECONDITION"})
+SET rt2.source_types = ["Action"], rt2.target_types = ["Precondition"],
+    rt2.description = "Action requires precondition to be satisfied",
+    rt2.is_valid = true
+
+MERGE (rt3:RelationshipType {name: "MUST_FULFILL"})
+SET rt3.source_types = ["Party"], rt3.target_types = ["Obligation"],
+    rt3.description = "Party must fulfill an obligation",
+    rt3.is_valid = true
+
+MERGE (rt4:RelationshipType {name: "IS_PROHIBITED"})
+SET rt4.source_types = ["Party", "Action"], rt4.target_types = ["ProhibitedAction"],
+    rt4.description = "Action or party is prohibited from doing something",
+    rt4.is_valid = true
+
+MERGE (rt5:RelationshipType {name: "DEPENDS_ON"})
+SET rt5.source_types = ["Condition"], rt5.target_types = ["Precondition"],
+    rt5.description = "Condition depends on a precondition",
+    rt5.is_valid = true
+
+MERGE (rt6:RelationshipType {name: "APPLIES_TO"})
+SET rt6.source_types = ["Obligation", "ProhibitedAction"], rt6.target_types = ["Party"],
+    rt6.description = "Obligation or prohibition applies to a party",
+    rt6.is_valid = true
+"""
+
+CLEAR_DOCUMENT = """
+MATCH (e:ExtractedEntity {document_id: $document_id})
+DETACH DELETE e
+"""
+
+GET_DOCUMENT_ENTITIES = """
+MATCH (e:ExtractedEntity {document_id: $document_id})
+RETURN e.name AS name, e.entity_type AS type, e.mention AS mention
+ORDER BY e.entity_type
+"""
+
+GET_DOCUMENT_RELATIONSHIPS = """
+MATCH (e1:ExtractedEntity {document_id: $document_id})-[r]->(e2:ExtractedEntity)
+RETURN e1.name AS source, e2.name AS target, type(r) AS relationship
+"""
+
+VALIDATION_CHECK = """
+MATCH (rt:RelationshipType {name: $relationship})
+RETURN rt.is_valid AS is_valid, rt.valid_sources AS valid_sources, 
+       rt.valid_targets AS valid_targets
 """
 
 SEED_RULES = """
@@ -78,4 +170,9 @@ MERGE (r3)-[:APPLIES_TO]->(t_approval)
 MERGE (r4)-[:APPLIES_TO]->(t_approval)
 MERGE (r5)-[:APPLIES_TO]->(t_approval)
 MERGE (r4)-[:APPLIES_TO]->(t_access)
+"""
+
+CHECK_ROLE_CAN_DO = """
+MATCH (role:Role {name: $role})-[:CAN_DO]->(action:Action {name: $action})
+RETURN count(*) > 0 AS allowed
 """

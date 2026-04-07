@@ -176,3 +176,196 @@ header p {
   font-size: 0.85rem;
   color: #666;
 }
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #888;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tabs button.active {
+  background: rgba(124, 58, 237, 0.3);
+  border-color: #7c3aed;
+  color: #fff;
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section {
+  margin-bottom: 30px;
+}
+
+.section h2 {
+  color: #aaa;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+}
+
+.extraction-results {
+  margin-top: 30px;
+}
+
+.status-banner {
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.status-banner.success {
+  background: rgba(34, 197, 94, 0.2);
+  border: 2px solid #22c55e;
+  color: #86efac;
+}
+
+.status-banner.partial {
+  background: rgba(251, 191, 36, 0.2);
+  border: 2px solid #fbbf24;
+  color: #fde047;
+}
+
+.status-banner.rejected {
+  background: rgba(239, 68, 68, 0.2);
+  border: 2px solid #ef4444;
+  color: #fca5a5;
+}
+
+.entities-section, .relationships-section, .rejected-section {
+  margin-bottom: 25px;
+}
+
+.entities-section h3, .relationships-section h3, .rejected-section h3 {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.entities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.entity-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.entity-type {
+  color: #7c3aed;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.entity-name {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.entity-mention {
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.entity-confidence {
+  color: #666;
+  font-size: 0.75rem;
+}
+
+.relationships-list, .rejected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.relationship-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.relationship-card.valid {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.rel-source, .rel-target {
+  color: #00d4ff;
+  font-weight: 500;
+}
+
+.rel-arrow {
+  color: #666;
+  margin: 0 8px;
+}
+
+.rel-type {
+  color: #7c3aed;
+  font-weight: bold;
+}
+
+.rel-justification {
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.rejected-card {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rejected-type {
+  color: #ef4444;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.rejected-reason {
+  color: #fca5a5;
+  font-size: 0.9rem;
+}
+
+.question-form input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 15px;
+  color: #fff;
+}

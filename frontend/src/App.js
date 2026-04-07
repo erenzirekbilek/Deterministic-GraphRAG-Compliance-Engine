@@ -2,6 +2,36 @@ import React, { useState } from 'react';
 import './App.css';
 
 function App() {
+  const [activeTab, setActiveTab] = useState('compliance');
+  return (
+    <div className="container">
+      <header>
+        <h1>Deterministic GraphRAG</h1>
+        <p>Text-to-Ontology Extraction Engine</p>
+      </header>
+      
+      <div className="tabs">
+        <button 
+          className={activeTab === 'compliance' ? 'active' : ''} 
+          onClick={() => setActiveTab('compliance')}
+        >
+          Compliance Q&A
+        </button>
+        <button 
+          className={activeTab === 'ontology' ? 'active' : ''} 
+          onClick={() => setActiveTab('ontology')}
+        >
+          Text-to-Ontology
+        </button>
+      </div>
+
+      {activeTab === 'compliance' && <ComplianceQA />}
+      {activeTab === 'ontology' && <OntologyExtraction />}
+    </div>
+  );
+}
+
+function ComplianceQA() {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -31,12 +61,7 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <header>
-        <h1>GraphRAG Compliance Engine</h1>
-        <p>Ask compliance questions and get deterministic validation</p>
-      </header>
-
+    <div className="tab-content">
       <form onSubmit={handleSubmit} className="question-form">
         <textarea
           value={question}
@@ -56,27 +81,158 @@ function App() {
           <div className="status-badge">
             {response.approved ? '✓ APPROVED' : '✗ REJECTED'}
           </div>
-          
           <div className="details">
             <h3>Question:</h3>
             <p>{response.question}</p>
-            
             <h3>LLM Output:</h3>
             <p>Decision: {response.llm_raw_output?.decision}</p>
             <p>Reason: {response.llm_raw_output?.reason}</p>
-            
             <h3>Validation:</h3>
             <p className="validation-reason">{response.validation_reason}</p>
-            
             <h3>Rules Applied:</h3>
             <div className="rules-list">
               {response.graph_rules_applied?.map((rule, i) => (
                 <span key={i} className="rule-tag">{rule}</span>
               ))}
             </div>
-            
-            <p className="provider">LLM Provider: {response.llm_provider}</p>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OntologyExtraction() {
+  const [text, setText] = useState('');
+  const [response, setResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [file, setFile] = useState(null);
+
+  const handleTextSubmit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    await extractOntology({ text });
+  };
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+  };
+
+  const handleFileUpload = async (e) => {
+    e.preventDefault();
+    if (!file) return;
+    await extractOntology({ file });
+  };
+
+  const extractOntology = async (payload) => {
+    setLoading(true);
+    setError(null);
+    setResponse(null);
+
+    try {
+      let res;
+      if (payload.file) {
+        const formData = new FormData();
+        formData.append('file', payload.file);
+        res = await fetch('http://localhost:8000/api/v1/extract/pdf', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        res = await fetch('http://localhost:8000/api/v1/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: payload.text }),
+        });
+      }
+      const data = await res.json();
+      setResponse(data);
+    } catch (err) {
+      setError('Failed to extract ontology. Make sure the server is running.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="tab-content">
+      <div className="section">
+        <h2>Extract from Text</h2>
+        <form onSubmit={handleTextSubmit} className="question-form">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Enter text to extract entities and relationships..."
+            rows={4}
+          />
+          <button type="submit" disabled={loading || !text.trim()}>
+            {loading ? 'Extracting...' : 'Extract Ontology'}
+          </button>
+        </form>
+      </div>
+
+      <div className="section">
+        <h2>Extract from PDF</h2>
+        <form onSubmit={handleFileUpload} className="question-form">
+          <input type="file" accept=".pdf" onChange={handleFileChange} />
+          <button type="submit" disabled={loading || !file}>
+            {loading ? 'Processing PDF...' : 'Upload & Extract'}
+          </button>
+        </form>
+      </div>
+
+      {error && <div className="error">{error}</div>}
+
+      {response && (
+        <div className="extraction-results">
+          <div className={`status-banner ${response.status}`}>
+            Status: {response.status.toUpperCase()}
+          </div>
+
+          <div className="entities-section">
+            <h3>Extracted Entities ({response.entities?.length || 0})</h3>
+            <div className="entities-grid">
+              {response.entities?.map((entity, i) => (
+                <div key={i} className="entity-card">
+                  <span className="entity-type">{entity.entity_type}</span>
+                  <span className="entity-name">{entity.name}</span>
+                  <span className="entity-mention">"{entity.mention}"</span>
+                  <span className="entity-confidence">Confidence: {entity.confidence}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relationships-section">
+            <h3>Extracted Relationships ({response.relationships?.length || 0})</h3>
+            <div className="relationships-list">
+              {response.relationships?.map((rel, i) => (
+                <div key={i} className="relationship-card valid">
+                  <span className="rel-source">{rel.source}</span>
+                  <span className="rel-arrow">→</span>
+                  <span className="rel-type">{rel.relationship}</span>
+                  <span className="rel-arrow">→</span>
+                  <span className="rel-target">{rel.target}</span>
+                  <p className="rel-justification">"{rel.justification}"</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {response.rejected?.length > 0 && (
+            <div className="rejected-section">
+              <h3>Rejected Extractions ({response.rejected.length})</h3>
+              <div className="rejected-list">
+                {response.rejected.map((item, i) => (
+                  <div key={i} className="rejected-card">
+                    <span className="rejected-type">{item.type}</span>
+                    <span className="rejected-reason">⚠ {item.reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

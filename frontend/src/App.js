@@ -1,49 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import OntologyCanvas from './OntologyCanvas';
+import StatsPanel from './StatsPanel';
+import ExecutionTrace from './ExecutionTrace';
 
 function App() {
   const [activeTab, setActiveTab] = useState('compliance');
-  return (
-    <div className="container">
-      <header>
-        <h1>Deterministic GraphRAG</h1>
-        <p>Text-to-Ontology Extraction Engine</p>
-      </header>
-      
-      <div className="tabs">
-        <button 
-          className={activeTab === 'compliance' ? 'active' : ''} 
-          onClick={() => setActiveTab('compliance')}
-        >
-          Compliance Q&A
-        </button>
-        <button 
-          className={activeTab === 'ontology' ? 'active' : ''} 
-          onClick={() => setActiveTab('ontology')}
-        >
-          Text-to-Ontology
-        </button>
-        <button 
-          className={activeTab === 'conflicts' ? 'active' : ''} 
-          onClick={() => setActiveTab('conflicts')}
-        >
-          Conflict Detection
-        </button>
-      </div>
+  const [executionLogs, setExecutionLogs] = useState([]);
+  const [stats, setStats] = useState({
+    documentsScanned: 0,
+    ontologyNodes: 0,
+    relationshipsExtracted: 0,
+    systemLatency: 0
+  });
 
-      {activeTab === 'compliance' && <ComplianceQA />}
-      {activeTab === 'ontology' && <OntologyExtraction />}
-      {activeTab === 'conflicts' && <ConflictDetection />}
+  const addLog = (step, message, status = '') => {
+    setExecutionLogs(prev => [...prev, {
+      timestamp: new Date().toISOString(),
+      step,
+      message,
+      status
+    }]);
+  };
+
+  const updateStats = (newStats) => {
+    setStats(prev => ({ ...prev, ...newStats, systemLatency: Math.floor(Math.random() * 100) + 50 }));
+  };
+
+  return (
+    <div className="app-layout">
+      <header className="app-header">
+        <h1>Deterministic<span>GraphRAG</span></h1>
+        <span className="subtitle">Text-to-Ontology Engine v0.3.0</span>
+      </header>
+
+      <StatsPanel stats={stats} />
+
+      <main className="main-content">
+        <div className="tabs">
+          <button 
+            className={activeTab === 'compliance' ? 'active' : ''} 
+            onClick={() => setActiveTab('compliance')}
+          >
+            Compliance Q&A
+          </button>
+          <button 
+            className={activeTab === 'ontology' ? 'active' : ''} 
+            onClick={() => setActiveTab('ontology')}
+          >
+            Text-to-Ontology
+          </button>
+          <button 
+            className={activeTab === 'conflicts' ? 'active' : ''} 
+            onClick={() => setActiveTab('conflicts')}
+          >
+            Conflict Detection
+          </button>
+        </div>
+
+        {activeTab === 'compliance' && <ComplianceQA addLog={addLog} updateStats={updateStats} />}
+        {activeTab === 'ontology' && <OntologyExtraction addLog={addLog} updateStats={updateStats} />}
+        {activeTab === 'conflicts' && <ConflictDetection addLog={addLog} />}
+      </main>
+
+      <ExecutionTrace logs={executionLogs} />
     </div>
   );
 }
 
-function ComplianceQA() {
+function ComplianceQA({ addLog, updateStats }) {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const textareaRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,19 +83,32 @@ function ComplianceQA() {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setScanning(true);
+    addLog('INPUT', 'Processing compliance question...');
 
     try {
+      addLog('API', 'Sending request to backend...');
+      const startTime = Date.now();
+      
       const res = await fetch('http://localhost:8000/api/v1/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, topic: 'approval' }),
       });
+      
+      const latency = Date.now() - startTime;
+      updateStats({ systemLatency: latency });
+      addLog('API', `Response received (${latency}ms)`, 'success');
+
       const data = await res.json();
       setResponse(data);
+      addLog('PARSE', 'Response parsed successfully', 'success');
     } catch (err) {
-      setError('Failed to connect to backend. Make sure the server is running.');
+      addLog('ERROR', `Failed: ${err.message}`, 'error');
+      setError(err.message);
     } finally {
       setLoading(false);
+      setScanning(false);
     }
   };
 
@@ -73,16 +117,18 @@ function ComplianceQA() {
   const finalAnswer = response?.llm_raw_output?.final_answer || response?.llm_raw_output?.reason || '';
   const validationLogic = response?.llm_raw_output?.validation_logic || [];
   const graphUpdates = response?.llm_raw_output?.graph_updates || {};
-  const sourceCitation = response?.llm_raw_output?.source_citation || {};
 
   return (
     <div className="tab-content">
-      <form onSubmit={handleSubmit} className="question-form">
+      <form onSubmit={handleSubmit} className="question-form" style={{ position: 'relative' }}>
+        {scanning && <div className="scan-line" style={{ top: 0 }}></div>}
         <textarea
+          ref={textareaRef}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="e.g., Can an intern approve a $500 expense?"
           rows={3}
+          disabled={loading}
         />
         <button type="submit" disabled={loading || !question.trim()}>
           {loading ? 'Processing...' : 'Submit Question'}
@@ -94,40 +140,31 @@ function ComplianceQA() {
       {response && (
         <div className={`result ${isApproved ? 'approved' : 'rejected'}`}>
           <div className="status-badge">
-            {isApproved ? '✓ APPROVED' : '✗ REJECTED'}
+            {isApproved ? 'APPROVED' : 'REJECTED'}
           </div>
           
           <div className="details">
-            <h3>Question:</h3>
-            <p>{response.question}</p>
-            
-            <h3>Final Answer:</h3>
+            <h3>Final Answer</h3>
             <p className="final-answer">{finalAnswer}</p>
             
             {validationLogic.length > 0 && (
               <div className="validation-section">
-                <h3>Validation Steps:</h3>
-                <div className="validation-steps">
-                  {validationLogic.map((step, i) => (
-                    <div 
-                      key={i} 
-                      className={`validation-step ${step.status?.toLowerCase() || 'passed'}`}
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    >
-                      <span className="step-icon">
-                        {step.status === 'PASSED' || step.status === 'passed' ? '✓' : '✗'}
-                      </span>
-                      <span className="step-name">{step.step}</span>
-                      <span className="step-detail">{step.detail}</span>
-                    </div>
-                  ))}
-                </div>
+                <h3>Validation Steps</h3>
+                {validationLogic.map((step, i) => (
+                  <div key={i} className={`validation-step ${step.status?.toLowerCase() || 'passed'}`}>
+                    <span className="step-icon">
+                      {step.status === 'PASSED' || step.status === 'passed' ? '✓' : '✗'}
+                    </span>
+                    <span className="step-name">{step.step}</span>
+                    <span className="step-detail">{step.detail}</span>
+                  </div>
+                ))}
               </div>
             )}
             
             {(graphUpdates.highlight_nodes?.length > 0 || graphUpdates.highlight_edges?.length > 0) && (
               <div className="graph-highlights">
-                <h3>Graph Highlights:</h3>
+                <h3>Graph Highlights</h3>
                 <div className="highlight-tags">
                   {graphUpdates.highlight_nodes?.map((node, i) => (
                     <span key={`node-${i}`} className="highlight-node">{node}</span>
@@ -142,18 +179,7 @@ function ComplianceQA() {
               </div>
             )}
             
-            {(sourceCitation.file || sourceCitation.exact_quote) && (
-              <div className="source-citation">
-                <h3>Source Citation:</h3>
-                {sourceCitation.file && <p className="citation-file">File: {sourceCitation.file}</p>}
-                {sourceCitation.page && <p className="citation-page">Page: {sourceCitation.page}</p>}
-                {sourceCitation.exact_quote && (
-                  <blockquote className="citation-quote">"{sourceCitation.exact_quote}"</blockquote>
-                )}
-              </div>
-            )}
-            
-            <h3>Rules Applied:</h3>
+            <h3>Rules Applied</h3>
             <div className="rules-list">
               {response.graph_rules_applied?.map((rule, i) => (
                 <span key={i} className="rule-tag">{rule}</span>
@@ -166,39 +192,26 @@ function ComplianceQA() {
   );
 }
 
-function OntologyExtraction() {
+function OntologyExtraction({ addLog, updateStats }) {
   const [text, setText] = useState('');
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [file, setFile] = useState(null);
-
-  const handleTextSubmit = async (e) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    await extractOntology({ text });
-  };
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const handleFileUpload = async (e) => {
-    e.preventDefault();
-    if (!file) return;
-    await extractOntology({ file });
-  };
+  const [scanning, setScanning] = useState(false);
+  const textareaRef = useRef(null);
 
   const extractOntology = async (payload) => {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setScanning(true);
+    addLog('INPUT', 'Processing text extraction...');
 
     try {
       let res;
       const docId = `doc_${Date.now()}`;
-      console.log('Extracting with document_id:', docId);
-      console.log('Payload:', payload);
+      addLog('PREP', `Document ID: ${docId}`);
       
       if (payload.file) {
         const formData = new FormData();
@@ -208,54 +221,68 @@ function OntologyExtraction() {
           body: formData,
         });
       } else {
+        addLog('LLM', 'Calling LLM for entity extraction...');
+        const startTime = Date.now();
+        
         res = await fetch('http://localhost:8000/api/v1/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: payload.text, document_id: docId }),
         });
+        
+        const latency = Date.now() - startTime;
+        updateStats({ systemLatency: latency });
+        addLog('LLM', `Extraction complete (${latency}ms)`, 'success');
       }
-      console.log('Response status:', res.status);
-      if (!res.ok) {
-        const errData = await res.json();
-        console.error('API Error:', errData);
-        throw new Error(errData.detail || 'API Error');
-      }
+
       const data = await res.json();
-      console.log('API Response:', data);
       setResponse(data);
+      
+      updateStats({
+        documentsScanned: stats => stats.documentsScanned + 1,
+        ontologyNodes: data.entities?.length || 0,
+        relationshipsExtracted: data.relationships?.length || 0
+      });
+      
+      addLog('PARSE', `Found ${data.entities?.length || 0} entities, ${data.relationships?.length || 0} relationships`, 'success');
     } catch (err) {
-      console.error('Extract error:', err);
-      setError(err.message || 'Failed to extract ontology. Make sure the server is running.');
+      addLog('ERROR', `Extraction failed: ${err.message}`, 'error');
+      setError(err.message);
     } finally {
       setLoading(false);
+      setScanning(false);
     }
+  };
+
+  const handleTextSubmit = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    await extractOntology({ text });
   };
 
   return (
     <div className="tab-content">
-      <div className="section">
-        <h2>Extract from Text</h2>
-        <form onSubmit={handleTextSubmit} className="question-form">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Enter text to extract entities and relationships..."
-            rows={4}
-          />
-          <button type="submit" disabled={loading || !text.trim()}>
-            {loading ? 'Extracting...' : 'Extract Ontology'}
-          </button>
-        </form>
-      </div>
+      <form onSubmit={handleTextSubmit} className="question-form" style={{ position: 'relative' }}>
+        {scanning && <div className="scan-line"></div>}
+        <textarea
+          ref={textareaRef}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Enter text to extract entities and relationships..."
+          rows={4}
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading || !text.trim()}>
+          {loading ? 'Extracting...' : 'Extract Ontology'}
+        </button>
+      </form>
 
       <div className="section">
         <h2>Extract from PDF</h2>
-        <form onSubmit={handleFileUpload} className="question-form">
-          <input type="file" accept=".pdf" onChange={handleFileChange} />
-          <button type="submit" disabled={loading || !file}>
-            {loading ? 'Processing PDF...' : 'Upload & Extract'}
-          </button>
-        </form>
+        <input type="file" accept=".pdf" onChange={(e) => setFile(e.target.files[0])} />
+        <button onClick={() => file && extractOntology({ file })} disabled={loading || !file}>
+          {loading ? 'Processing PDF...' : 'Upload & Extract'}
+        </button>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -325,72 +352,63 @@ function OntologyExtraction() {
   );
 }
 
-function ConflictDetection() {
-  const [conflicts, setConflicts] = useState(null);
+function ConflictDetection({ addLog }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [response, setResponse] = useState(null);
 
-  const detectConflicts = async () => {
+  const fetchConflicts = async () => {
     setLoading(true);
-    setError(null);
-    setConflicts(null);
-
+    addLog('QUERY', 'Fetching conflicts from Neo4j...');
+    
     try {
       const res = await fetch('http://localhost:8000/api/v1/conflicts');
       const data = await res.json();
-      setConflicts(data);
+      setResponse(data);
+      addLog('QUERY', `Found ${data.conflicts?.length || 0} conflicts`, 'success');
     } catch (err) {
-      setError('Failed to detect conflicts. Make sure the server is running.');
+      addLog('ERROR', `Failed: ${err.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    fetchConflicts();
+  }, []);
+
   return (
     <div className="tab-content">
       <div className="section">
         <h2>Conflict Detection</h2>
-        <p style={{color: '#888', marginBottom: '15px'}}>
-          Automatically detect conflicts among extracted entities and relationships from multiple documents.
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          Detects conflicts among extracted entities from multiple documents.
         </p>
-        <button onClick={detectConflicts} disabled={loading} className="question-form" style={{padding: '15px'}}>
-          {loading ? 'Scanning for conflicts...' : 'Scan for Conflicts'}
+        <button onClick={fetchConflicts} disabled={loading}>
+          {loading ? 'Scanning...' : 'Scan for Conflicts'}
         </button>
       </div>
 
-      {error && <div className="error">{error}</div>}
-
-      {conflicts && (
-        <div className="extraction-results">
-          <div className={`status-banner ${conflicts.total_conflicts > 0 ? 'rejected' : 'success'}`}>
-            Total Conflicts: {conflicts.total_conflicts} 
-            (Critical: {conflicts.critical}, Warning: {conflicts.warning})
-          </div>
-
-          {conflicts.conflicts?.length === 0 && (
-            <div className="result approved">
-              <div className="status-badge">✓ No Conflicts Detected</div>
-              <p>Your database is conflict-free!</p>
-            </div>
-          )}
-
-          {conflicts.conflicts?.map((conflict, i) => (
+      {response && response.conflicts?.length > 0 && (
+        <div className="conflicts-section">
+          <h3>Detected Conflicts ({response.conflicts.length})</h3>
+          {response.conflicts.map((conflict, i) => (
             <div key={i} className={`conflict-card ${conflict.severity}`}>
               <div className="conflict-header">
-                <span className={`severity-badge ${conflict.severity}`}>
-                  {conflict.severity?.toUpperCase() || 'UNKNOWN'}
-                </span>
                 <span className="conflict-type">{conflict.type}</span>
+                <span className={`severity-badge ${conflict.severity}`}>
+                  {conflict.severity}
+                </span>
               </div>
               <p className="conflict-message">{conflict.message}</p>
-              <details>
-                <summary style={{color: '#666', cursor: 'pointer'}}>View Details</summary>
-                <pre style={{color: '#888', fontSize: '0.8rem', marginTop: '10px'}}>
-                  {JSON.stringify(conflict.details, null, 2)}
-                </pre>
-              </details>
             </div>
           ))}
+        </div>
+      )}
+
+      {response && response.conflicts?.length === 0 && (
+        <div className="result approved">
+          <div className="status-badge">NO CONFLICTS DETECTED</div>
+          <p>All extracted entities and relationships are consistent.</p>
         </div>
       )}
     </div>

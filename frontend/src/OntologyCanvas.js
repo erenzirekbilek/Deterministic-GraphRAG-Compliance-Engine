@@ -42,15 +42,15 @@ const connectionVariants = {
   }
 };
 
-function OntologyCanvas({ entities = [], relationships = [] }) {
+function OntologyCanvas({ entities = [], relationships = [], loading = false }) {
   const [positions, setPositions] = useState({});
   const [showCanvas, setShowCanvas] = useState(false);
 
   useEffect(() => {
-    if (entities.length > 0) {
+    if (entities.length > 0 || loading) {
       setShowCanvas(true);
     }
-  }, [entities]);
+  }, [entities, loading]);
 
   useEffect(() => {
     const newPositions = {};
@@ -69,7 +69,9 @@ function OntologyCanvas({ entities = [], relationships = [] }) {
     setPositions(newPositions);
   }, [entities]);
 
-  if (!showCanvas && entities.length === 0) {
+  const skeletonNodes = [1, 2, 3, 4, 5];
+
+  if (!showCanvas && entities.length === 0 && !loading) {
     return (
       <div className="ontology-canvas-empty">
         <div className="empty-icon">
@@ -84,6 +86,66 @@ function OntologyCanvas({ entities = [], relationships = [] }) {
           </svg>
         </div>
         <p>Extracted entities will appear here as an interactive graph</p>
+      </div>
+    );
+  }
+
+  if (loading && entities.length === 0) {
+    return (
+      <div className="ontology-canvas">
+        <svg viewBox="0 0 900 600" className="canvas-svg">
+          <defs>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+              <feMerge>
+                <feMergeNode in="coloredBlur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          {skeletonNodes.map((_, i) => {
+            const angle = (i / skeletonNodes.length) * 2 * Math.PI - Math.PI / 2;
+            const x = 450 + 200 * Math.cos(angle);
+            const y = 300 + 200 * Math.sin(angle);
+            return (
+              <g key={i}>
+                <motion.circle
+                  cx={x}
+                  cy={y}
+                  r="28"
+                  fill="transparent"
+                  stroke="var(--border-medium)"
+                  strokeWidth="2"
+                  initial={{ opacity: 0.3 }}
+                  animate={{ 
+                    opacity: [0.3, 0.6, 0.3],
+                    scale: [1, 1.05, 1]
+                  }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity, 
+                    delay: i * 0.2 
+                  }}
+                />
+                <motion.circle
+                  cx={x}
+                  cy={y}
+                  r="20"
+                  fill="var(--bg-elevated)"
+                  stroke="var(--border-medium)"
+                  strokeWidth="1"
+                  initial={{ opacity: 0.3 }}
+                  animate={{ opacity: [0.3, 0.5, 0.3] }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity, 
+                    delay: i * 0.2 
+                  }}
+                />
+              </g>
+            );
+          })}
+        </svg>
       </div>
     );
   }

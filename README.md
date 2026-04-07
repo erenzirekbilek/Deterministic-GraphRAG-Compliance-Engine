@@ -2,6 +2,36 @@
 
 A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pre-defined schema in Neo4j. The system validates all extractions against the ontology and rejects invalid relationships with "This violates the rule."
 
+## Recent Changes
+
+### 🎨 Professional UI Redesign
+- Complete CSS overhaul with **Inter font**
+- Modern dark theme with deep navy background
+- Purple primary accents with cyan highlights
+- Smooth animations and glass-morphism effects
+- Improved cards, buttons, and form elements
+- Enhanced Ontology Canvas with better node styling
+
+### 🔄 Multi-LLM Support Improvements
+- **Retry Mechanism**: Exponential backoff (2s → 4s → 8s) for rate limits
+- **JSON Mode**: Forces valid JSON output (Groq)
+- **JSON Repair Buffer**: Removes markdown and filler text
+- **Increased Tokens**: 4096 max_tokens for complete JSON output
+
+### 🎯 Enhanced Compliance Auditor
+- **Auditor Persona**: Strict system prompt for deterministic answers
+- **Structured JSON Output**: decision, final_answer, validation_logic, graph_updates, source_citation
+- **Step-by-Step Validation**: Visual validation steps with pass/fail icons
+- **Graph Highlights**: Animated node and edge highlighting
+- **Source Citations**: Quote display with visual feedback
+
+### 🖼️ Ontology Canvas (Real-time Visualization)
+- Animated nodes with spring bounce effect using **Framer Motion**
+- SVG laser line connections between related entities
+- Red glow + shake animation for prohibited actions
+- Color-coded nodes by entity type
+- Interactive hover effects
+
 ## Features
 
 - **Text-to-Ontology Extraction** - Extract entities and relationships from text or PDF documents
@@ -214,10 +244,19 @@ The manager can approve expense requests up to $10,000. The CFO has authority to
 
 - **Backend:** FastAPI, Neo4j, Python
 - **LLM:** Groq / MiniMax / Google Gemini / HuggingFace
-- **Frontend:** React
+- **Frontend:** React + Tailwind CSS + Framer Motion
 - **PDF Processing:** pypdf
 
 ## Version History
+
+- **v0.3.0** - Professional UI & Canvas (Current)
+  - Professional UI redesign with modern dark theme
+  - Ontology Canvas with animated nodes and laser connections
+  - Framer Motion for smooth animations
+  - Tailwind CSS configuration
+  - Enhanced Auditor persona with structured output
+  - Validation steps display with animated icons
+  - Graph highlights and source citations
 
 - **v0.2.0** - Text-to-Ontology extraction with validation
   - Multi-LLM support (Groq, MiniMax, Gemini, HuggingFace)

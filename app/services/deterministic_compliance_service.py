@@ -42,14 +42,21 @@ The system has deterministically computed the following result from the knowledg
 
 Question: {question}
 
-Your task is to translate this technical result into a human-readable response following the STRICT JSON schema below. Do not include any conversational filler.
+CRITICAL: If the decision is REJECTED, you MUST explain WHY in detail. Use these patterns:
+- "REJECTED because [specific reason]"
+- "REJECTED: [rule ID] - [exact rule description]"
+- "FAILED: [entity] does not have [permission] permission"
+
+If APPROVED, explain what rule permitted it.
 
 REQUIRED OUTPUT (valid JSON only):
 {{
   "decision": "APPROVED | REJECTED",
-  "final_answer": "A natural yet precise and definitive explanation...",
+  "final_answer": "Clear explanation: APPROVED because... OR REJECTED because...",
   "validation_logic": [
-    {{ "step": "Check Name", "status": "PASSED | FAILED", "detail": "..." }}
+    {{ "step": "Database Lookup", "status": "PASSED | FAILED", "detail": "Found/Unfound [entity] in Neo4j with [permission] permission" }},
+    {{ "step": "Permission Check", "status": "PASSED | FAILED", "detail": "Has/Does not have authority based on rule [ID]" }},
+    {{ "step": "Limit Validation", "status": "PASSED | FAILED", "detail": "$[amount] is within/exceeds $[limit] limit" }}
   ],
   "graph_updates": {{
     "highlight_nodes": ["entity1", "entity2"],
@@ -57,18 +64,17 @@ REQUIRED OUTPUT (valid JSON only):
     "violation_edge": null
   }},
   "source_citation": {{
-    "file": "knowledge_base",
+    "file": "ontology_rules",
     "page": 1,
-    "exact_quote": "...",
+    "exact_quote": "[exact rule from Neo4j if available]",
     "coordinates": [0, 0, 0, 0]
   }}
 }}
 
 IMPORTANT: 
-- Return ONLY valid JSON, no markdown, no explanations
-- Every field in the schema must be present
-- decision must be exactly "APPROVED" or "REJECTED"
-- validation_logic must be an array with at least one validation step"""
+- For REJECTED: validation_logic must have FAILED steps with specific reasons
+- Include dollar amounts, limits, and rule IDs when applicable
+- Be deterministic - if graph says NO, output REJECTED"""
 
 
 class DeterministicComplianceService:

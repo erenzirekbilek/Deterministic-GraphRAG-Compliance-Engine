@@ -6,6 +6,7 @@ from app.models.schemas import (
 )
 from app.services.graphrag_service import GraphRAGService
 from app.services.ontology_extraction_service import OntologyExtractionService
+from app.services.deterministic_compliance_service import DeterministicComplianceService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,6 +20,11 @@ def get_graphrag_service() -> GraphRAGService:
 def get_ontology_service() -> OntologyExtractionService:
     from app.main import ontology_service
     return ontology_service
+
+
+def get_deterministic_service() -> DeterministicComplianceService:
+    from app.main import deterministic_service
+    return deterministic_service
 
 
 @router.get("/health", response_model=HealthResponse, tags=["System"])
@@ -40,16 +46,33 @@ async def health_check(service: GraphRAGService = Depends(get_graphrag_service))
 @router.post("/ask", response_model=ComplianceResponse, tags=["Compliance"])
 async def ask_compliance_question(
     request: QuestionRequest,
-    service: GraphRAGService = Depends(get_graphrag_service)
+    service: DeterministicComplianceService = Depends(get_deterministic_service)
 ):
-    """Submit a compliance question. Returns approved/rejected with reasoning."""
-    logger.info("Incoming question: %s (topic=%s)", request.question, request.topic)
+    """
+    Submit a compliance question. 
+    
+    DETERMINISTIC MODE: First queries Neo4j for a mathematically definite YES/NO,
+    then uses LLM ONLY to translate the result to human-readable language.
+    """
+    logger.info("Incoming deterministic question: %s", request.question)
 
     try:
-        result = service.ask(question=request.question, topic=request.topic)
+        result = service.ask(question=request.question)
         return result
     except Exception as e:
         logger.error("Error processing question: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/knowledge-base", tags=["Knowledge Base"])
+async def get_knowledge_base(
+    service: DeterministicComplianceService = Depends(get_deterministic_service)
+):
+    """Get summary of what the system knows (parties, actions, limits)."""
+    try:
+        return service.get_knowledge_summary()
+    except Exception as e:
+        logger.error("Error getting knowledge base: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 

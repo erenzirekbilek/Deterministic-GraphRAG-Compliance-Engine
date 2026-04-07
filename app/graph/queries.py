@@ -176,3 +176,58 @@ CHECK_ROLE_CAN_DO = """
 MATCH (role:Role {name: $role})-[:CAN_DO]->(action:Action {name: $action})
 RETURN count(*) > 0 AS allowed
 """
+
+SEED_KNOWLEDGE_BASE = """
+// Knowledge Base for Deterministic Compliance Queries
+
+// PARTIES (Roles)
+MERGE (manager:Party {name: "manager"})
+SET manager.description = "Manager role with approval authority"
+
+MERGE (intern:Party {name: "intern"})
+SET intern.description = "Intern with no approval authority"
+
+MERGE (ceo:Party {name: "ceo"})
+SET ceo.description = "Chief Executive Officer with unlimited authority"
+
+MERGE (analyst:Party {name: "analyst"})
+SET analyst.description = "Analyst with view-only access"
+
+MERGE (cfo:Party {name: "cfo"})
+SET cfo.description = "Chief Financial Officer with financial authority"
+
+MERGE (director:Party {name: "director"})
+SET director.description = "Director with department-level authority"
+
+// ACTIONS
+MERGE (approve_request:Action {name: "approve_request"})
+SET approve_request.description = "Approve a request or expense"
+
+MERGE (delete_records:Action {name: "delete_records"})
+SET delete_records.description = "Delete system records"
+
+MERGE (view_reports:Action {name: "view_reports"})
+SET view_reports.description = "View reports and data"
+
+// AUTHORITY RELATIONSHIPS (HAS_AUTHORITY)
+MERGE (manager)-[:HAS_AUTHORITY {limit: 10000}]->(approve_request)
+MERGE (ceo)-[:HAS_AUTHORITY {limit: null}]->(approve_request)
+MERGE (cfo)-[:HAS_AUTHORITY {limit: 50000}]->(approve_request)
+MERGE (director)-[:HAS_AUTHORITY {limit: 25000}]->(approve_request)
+
+// PROHIBITED ACTIONS
+MERGE (intern)-[:IS_PROHIBITED {justification: "Interns cannot approve any requests"}]->(prohibited_intern_approve:ProhibitedAction {name: "approve_request"})
+MERGE (analyst)-[:IS_PROHIBITED {justification: "Analysts cannot approve or delete"}]->(prohibited_analyst_approve:ProhibitedAction {name: "approve_request"})
+MERGE (analyst)-[:IS_PROHIBITED {justification: "Analysts cannot approve or delete"}]->(prohibited_analyst_delete:ProhibitedAction {name: "delete_records"})
+
+// VIEW ACCESS
+MERGE (manager)-[:HAS_AUTHORITY]->(view_reports)
+MERGE (intern)-[:HAS_AUTHORITY]->(view_reports)
+MERGE (ceo)-[:HAS_AUTHORITY]->(view_reports)
+MERGE (analyst)-[:HAS_AUTHORITY]->(view_reports)
+MERGE (cfo)-[:HAS_AUTHORITY]->(view_reports)
+MERGE (director)-[:HAS_AUTHORITY]->(view_reports)
+
+// DELETE ACCESS (restricted)
+MERGE (ceo)-[:HAS_AUTHORITY]->(delete_records)
+"""

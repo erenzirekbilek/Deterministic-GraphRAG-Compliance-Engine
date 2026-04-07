@@ -8,10 +8,11 @@ from dotenv import load_dotenv
 from app.api.routes import router
 from app.api.pdf_routes import router as pdf_router
 from app.graph.neo4j_client import Neo4jClient
-from app.graph.queries import SEED_RULES, SEED_ONTOLOGY
+from app.graph.queries import SEED_RULES, SEED_ONTOLOGY, SEED_KNOWLEDGE_BASE
 from app.services.graphrag_service import GraphRAGService
 from app.services.validation_service import ValidationService
 from app.services.ontology_extraction_service import OntologyExtractionService
+from app.services.deterministic_compliance_service import DeterministicComplianceService
 from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
 
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 graphrag_service: GraphRAGService = None
 ontology_service: OntologyExtractionService = None
+deterministic_service: DeterministicComplianceService = None
 
 
 def build_llm_adapter():
@@ -38,7 +40,7 @@ def build_llm_adapter():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graphrag_service, ontology_service
+    global graphrag_service, ontology_service, deterministic_service
 
     logger.info("Starting up Deterministic GraphRAG Compliance Engine...")
 
@@ -64,6 +66,14 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Ontology already exists with %d entity types.", len(ontology))
 
+    knowledge_base = graph.run_raw("MATCH (p:Party) RETURN p.name AS party LIMIT 1")
+    if not knowledge_base:
+        logger.info("No knowledge base found — seeding knowledge base...")
+        graph.run_raw(SEED_KNOWLEDGE_BASE)
+        logger.info("Knowledge base seeded successfully.")
+    else:
+        logger.info("Knowledge base already exists.")
+
     llm = build_llm_adapter()
 
     validation = ValidationService(graph=graph)
@@ -79,8 +89,14 @@ async def lifespan(app: FastAPI):
         graph=graph
     )
 
+    deterministic_service = DeterministicComplianceService(
+        llm=llm,
+        graph=graph
+    )
+
     logger.info("GraphRAG service ready. LLM provider: %s", os.getenv("LLM_PROVIDER"))
     logger.info("Ontology extraction service ready.")
+    logger.info("Deterministic compliance service ready.")
     yield
 
     graph.close()

@@ -264,3 +264,52 @@ The manager can approve expense requests up to $10,000. The CFO has authority to
   - JSON mode and repair buffer
   - Expanded ontology validation types
   - Conflict detection across documents
+
+## Contributing
+
+Contributions are welcome! Here's how you can help:
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/erenzirekbilek/Deterministic-GraphRAG-Compliance-Engine.git
+cd Deterministic-GraphRAG-Compliance-Engine
+
+# Install backend dependencies
+pip install -r requirements.txt
+
+# Install frontend dependencies
+cd frontend
+npm install
+```
+
+### Adding New LLM Providers
+
+1. Create a new adapter in `app/core/`
+2. Implement the `LLMService` interface
+3. Add provider selection in `app/main.py`
+4. Update `.env` with provider configuration
+
+### Adding New Features
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Commit with descriptive messages: `git commit -m 'Add amazing feature'`
+5. Push to the branch: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+### Code Style
+
+- **Python**: Follow PEP 8, use type hints
+- **JavaScript/React**: Use functional components with hooks
+- **CSS**: Use Tailwind utility classes when possible
+
+### Reporting Issues
+
+Please report bugs and feature requests via [GitHub Issues](https://github.com/erenzirekbilek/Deterministic-GraphRAG-Compliance-Engine/issues).
+
+## License
+
+This project is licensed under the MIT License.

@@ -69,7 +69,7 @@ class Neo4jClient:
         query = """
         MATCH (n:EntityType)
         RETURN n.name AS entity_name, n.description AS description
-        ORDER BY n.entity_name
+        ORDER BY n.name
         """
         with self.driver.session() as session:
             results = session.run(query)
@@ -114,7 +114,7 @@ class Neo4jClient:
                        mention=mention, confidence=confidence)
 
     def save_extracted_relationship(self, document_id: str, source: str, target: str, 
-                                     relationship: str, justification: str):
+                                     relationship: str, justification: str, limit: int = None):
         """Save an extracted relationship to Neo4j."""
         query = """
         MATCH (e1:ExtractedEntity {document_id: $document_id, name: $source})
@@ -122,11 +122,12 @@ class Neo4jClient:
         MERGE (e1)-[r:EXTRACTED_RELATIONSHIP]->(e2)
         SET r.relationship = $relationship,
             r.justification = $justification,
-            r.is_validated = false
+            r.is_validated = false,
+            r.limit = coalesce($limit, 0)
         """
         with self.driver.session() as session:
             session.run(query, document_id=document_id, source=source, target=target,
-                       relationship=relationship, justification=justification)
+                       relationship=relationship, justification=justification, limit=limit)
 
     def get_document_entities(self, document_id: str) -> list[dict]:
         """Get all entities extracted from a document."""

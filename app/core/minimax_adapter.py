@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import time
 import requests
@@ -6,21 +7,25 @@ from app.core.llm_interface import LLMService
 
 logger = logging.getLogger(__name__)
 
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 2
 MAX_TOKENS = 4096
 
 
-class GroqAdapter(LLMService):
-    def __init__(self, api_key: str):
-        if not api_key:
-            raise ValueError("GROQ_API_KEY is not set.")
-        self.api_key = api_key
+class MiniMaxAdapter(LLMService):
+    def __init__(self, api_key: str = None, model: str = None):
+        self.api_key = api_key or os.getenv("MINIMAX_API_KEY")
+        self.model = model or os.getenv("MINIMAX_MODEL", "MiniMax-M2.1")
+        
+        if not self.api_key:
+            raise ValueError("MINIMAX_API_KEY is not set.")
+        
+        base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
+        self.api_url = f"{base_url}/text/chatcompletion_v2"
 
     @property
     def provider_name(self) -> str:
-        return "groq-llama-3.3-70b"
+        return f"minimax-{self.model}"
 
     def _repair_json(self, text: str) -> str:
         """Repair malformed JSON by extracting JSON object from text."""
@@ -48,7 +53,7 @@ class GroqAdapter(LLMService):
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "llama-3.3-70b-versatile",
+            "model": self.model,
             "messages": [
                 {
                     "role": "system",
@@ -60,25 +65,31 @@ class GroqAdapter(LLMService):
                 }
             ],
             "temperature": 0.1,
-            "max_tokens": MAX_TOKENS,
-            "response_format": {"type": "json_object"}
+            "max_tokens": MAX_TOKENS
         }
         backoff = INITIAL_BACKOFF
-        last_error = None
         
         for attempt in range(MAX_RETRIES):
             try:
-                response = requests.post(GROQ_URL, json=payload, headers=headers, timeout=60)
+                response = requests.post(
+                    self.api_url,
+                    json=payload,
+                    headers=headers,
+                    timeout=60
+                )
+                
                 if response.status_code == 429:
                     logger.warning(f"Rate limit hit, retrying in {backoff}s (attempt {attempt + 1}/{MAX_RETRIES})")
                     time.sleep(backoff)
                     backoff *= 2
                     continue
+                
                 if response.status_code == 503:
                     logger.warning(f"Service unavailable, retrying in {backoff}s (attempt {attempt + 1}/{MAX_RETRIES})")
                     time.sleep(backoff)
                     backoff *= 2
                     continue
+                
                 response.raise_for_status()
                 data = response.json()
                 
@@ -101,15 +112,23 @@ class GroqAdapter(LLMService):
                     else:
                         raise RuntimeError("API returned empty response. Please try again later.")
                 
-                logger.debug("Groq raw output: %s", text[:200])
+                logger.debug("MiniMax raw output: %s", text[:200])
                 repaired = self._repair_json(text)
                 return repaired
-            except (requests.RequestException, KeyError, TypeError) as e:
-                last_error = e
+                
+            except requests.RequestException as e:
                 if attempt < MAX_RETRIES - 1:
-                    logger.warning(f"Groq API call failed: {e}, retrying in {backoff}s")
+                    logger.warning(f"MiniMax API call failed: {e}, retrying in {backoff}s")
                     time.sleep(backoff)
                     backoff *= 2
                 else:
-                    logger.error("Groq API call failed after all retries: %s", e)
-                    raise RuntimeError(f"Groq request failed: {e}")
+                    logger.error("MiniMax API call failed after all retries: %s", e)
+                    raise RuntimeError(f"MiniMax request failed: {e}")
+            except (KeyError, TypeError, IndexError) as e:
+                if attempt < MAX_RETRIES - 1:
+                    logger.warning(f"Invalid response format: {e}, retrying in {backoff}s")
+                    time.sleep(backoff)
+                    backoff *= 2
+                else:
+                    logger.error("Invalid response format after retries: %s", e)
+                    raise RuntimeError(f"Invalid API response: {e}")

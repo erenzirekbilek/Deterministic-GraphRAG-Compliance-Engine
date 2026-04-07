@@ -139,6 +139,10 @@ function OntologyExtraction() {
 
     try {
       let res;
+      const docId = `doc_${Date.now()}`;
+      console.log('Extracting with document_id:', docId);
+      console.log('Payload:', payload);
+      
       if (payload.file) {
         const formData = new FormData();
         formData.append('file', payload.file);
@@ -150,13 +154,21 @@ function OntologyExtraction() {
         res = await fetch('http://localhost:8000/api/v1/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: payload.text }),
+          body: JSON.stringify({ text: payload.text, document_id: docId }),
         });
       }
+      console.log('Response status:', res.status);
+      if (!res.ok) {
+        const errData = await res.json();
+        console.error('API Error:', errData);
+        throw new Error(errData.detail || 'API Error');
+      }
       const data = await res.json();
+      console.log('API Response:', data);
       setResponse(data);
     } catch (err) {
-      setError('Failed to extract ontology. Make sure the server is running.');
+      console.error('Extract error:', err);
+      setError(err.message || 'Failed to extract ontology. Make sure the server is running.');
     } finally {
       setLoading(false);
     }
@@ -194,7 +206,7 @@ function OntologyExtraction() {
       {response && (
         <div className="extraction-results">
           <div className={`status-banner ${response.status}`}>
-            Status: {response.status.toUpperCase()}
+            Status: {response.status?.toUpperCase() || 'UNKNOWN'}
           </div>
 
           <div className="entities-section">
@@ -234,6 +246,8 @@ function OntologyExtraction() {
                 {response.rejected.map((item, i) => (
                   <div key={i} className="rejected-card">
                     <span className="rejected-type">{item.type}</span>
+                    {item.source && <span className="rejected-source">{item.source}</span>}
+                    {item.target && <span className="rejected-target">→ {item.target}</span>}
                     <span className="rejected-reason">⚠ {item.reason}</span>
                   </div>
                 ))}
@@ -299,7 +313,7 @@ function ConflictDetection() {
             <div key={i} className={`conflict-card ${conflict.severity}`}>
               <div className="conflict-header">
                 <span className={`severity-badge ${conflict.severity}`}>
-                  {conflict.severity.toUpperCase()}
+                  {conflict.severity?.toUpperCase() || 'UNKNOWN'}
                 </span>
                 <span className="conflict-type">{conflict.type}</span>
               </div>

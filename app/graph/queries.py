@@ -61,32 +61,32 @@ SET et7.description = "An activity or task that can be performed",
 
 // Relationship Types (Valid connections between entities)
 MERGE (rt1:RelationshipType {name: "HAS_AUTHORITY"})
-SET rt1.source_types = ["Party"], rt1.target_types = ["Action"],
+SET rt1.source_types = ["Party", "Authority", "Role", "User", "Employee"], rt1.target_types = ["Action", "Activity", "Task"],
     rt1.description = "Party has authority to perform an action",
     rt1.is_valid = true
 
 MERGE (rt2:RelationshipType {name: "REQUIRES_PRECONDITION"})
-SET rt2.source_types = ["Action"], rt2.target_types = ["Precondition"],
+SET rt2.source_types = ["Action", "Activity", "Task"], rt2.target_types = ["Precondition", "Condition", "Requirement"],
     rt2.description = "Action requires precondition to be satisfied",
     rt2.is_valid = true
 
 MERGE (rt3:RelationshipType {name: "MUST_FULFILL"})
-SET rt3.source_types = ["Party"], rt3.target_types = ["Obligation"],
+SET rt3.source_types = ["Party", "Authority", "Role", "User", "Employee"], rt3.target_types = ["Obligation", "Duty", "Requirement"],
     rt3.description = "Party must fulfill an obligation",
     rt3.is_valid = true
 
 MERGE (rt4:RelationshipType {name: "IS_PROHIBITED"})
-SET rt4.source_types = ["Party", "Action"], rt4.target_types = ["ProhibitedAction"],
+SET rt4.source_types = ["Party", "Authority", "Role", "User", "Employee", "Action"], rt4.target_types = ["ProhibitedAction", "Action", "Activity"],
     rt4.description = "Action or party is prohibited from doing something",
     rt4.is_valid = true
 
 MERGE (rt5:RelationshipType {name: "DEPENDS_ON"})
-SET rt5.source_types = ["Condition"], rt5.target_types = ["Precondition"],
+SET rt5.source_types = ["Condition", "Action", "Activity"], rt5.target_types = ["Precondition", "Condition", "Requirement"],
     rt5.description = "Condition depends on a precondition",
     rt5.is_valid = true
 
 MERGE (rt6:RelationshipType {name: "APPLIES_TO"})
-SET rt6.source_types = ["Obligation", "ProhibitedAction"], rt6.target_types = ["Party"],
+SET rt6.source_types = ["Obligation", "ProhibitedAction", "Rule", "Policy"], rt6.target_types = ["Party", "Authority", "Role", "User", "Employee"],
     rt6.description = "Obligation or prohibition applies to a party",
     rt6.is_valid = true
 """
@@ -211,7 +211,7 @@ SET view_reports.description = "View reports and data"
 
 // AUTHORITY RELATIONSHIPS (HAS_AUTHORITY)
 MERGE (manager)-[:HAS_AUTHORITY {limit: 10000}]->(approve_request)
-MERGE (ceo)-[:HAS_AUTHORITY {limit: null}]->(approve_request)
+MERGE (ceo)-[:HAS_AUTHORITY {limit: 0}]->(approve_request)
 MERGE (cfo)-[:HAS_AUTHORITY {limit: 50000}]->(approve_request)
 MERGE (director)-[:HAS_AUTHORITY {limit: 25000}]->(approve_request)
 

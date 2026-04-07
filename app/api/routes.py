@@ -139,8 +139,15 @@ async def extract_ontology(
             status=status
         )
     except Exception as e:
-        logger.error("Error extracting ontology: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        logger.error("Error extracting ontology: %s", error_msg)
+        
+        if "quota" in error_msg.lower() or "rate limit" in error_msg.lower() or "429" in error_msg:
+            raise HTTPException(status_code=503, detail="API quota reached. Please try again later or switch to a different LLM provider.")
+        elif "request failed" in error_msg.lower() or "unavailable" in error_msg.lower():
+            raise HTTPException(status_code=503, detail="LLM service temporarily unavailable. Please try again later.")
+        else:
+            raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/extraction/{document_id}", tags=["Ontology"])

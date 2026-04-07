@@ -16,6 +16,8 @@ from app.services.deterministic_compliance_service import DeterministicComplianc
 from app.services.conflict_detection_service import ConflictDetectionService
 from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
+from app.core.huggingface_adapter import HuggingFaceAdapter
+from app.core.minimax_adapter import MiniMaxAdapter
 
 load_dotenv()
 logging.basicConfig(
@@ -31,13 +33,17 @@ conflict_service: ConflictDetectionService = None
 
 
 def build_llm_adapter():
-    provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+    provider = os.getenv("LLM_PROVIDER", "minimax").lower()
     if provider == "gemini":
         return GeminiAdapter(api_key=os.getenv("GEMINI_API_KEY"))
     elif provider == "groq":
         return GroqAdapter(api_key=os.getenv("GROQ_API_KEY"))
+    elif provider == "huggingface":
+        return HuggingFaceAdapter(api_key=os.getenv("HUGGINGFACE_API_KEY"))
+    elif provider == "minimax":
+        return MiniMaxAdapter(api_key=os.getenv("MINIMAX_API_KEY"))
     else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Use 'gemini' or 'groq'.")
+        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Use 'gemini', 'groq', 'huggingface', or 'minimax'.")
 
 
 @asynccontextmanager
@@ -118,7 +124,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

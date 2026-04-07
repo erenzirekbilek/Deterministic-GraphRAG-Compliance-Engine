@@ -1,6 +1,62 @@
 # Deterministic GraphRAG Compliance Engine
 
-A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pre-defined schema in Neo4j. The system validates all extractions against the ontology and rejects invalid relationships with "This violates the rule."
+## 🎯 Aim of the Project
+
+The **Deterministic GraphRAG Compliance Engine** addresses a critical problem in AI-powered compliance: **hallucination and lack of verification**.
+
+### The Problem
+
+Traditional RAG (Retrieval-Augmented Generation) systems suffer from:
+- **AI Hallucinations** - Models generate plausible but false information
+- **No Quality Control** - Invalid or fabricated relationships slip through
+- **Black Box Decisions** - Users can't verify why AI made certain conclusions
+- **Inconsistent Results** - Same input produces different outputs
+
+### Our Solution
+
+This project provides a **verification-first approach** to compliance:
+
+1. **Extract Only What's Valid** - AI extracts entities/relationships from text, but they're validated against a strict Neo4j ontology schema before storage
+
+2. **Reject Invalid Data** - If a relationship doesn't exist in the ontology, it's rejected with "This violates the rule" - not silently accepted
+
+3. **Show Your Work** - Every decision includes validation steps, source citations, and graph highlights - making AI decisions transparent and auditable
+
+4. **Detect Conflicts** - When the same entity has conflicting rules across documents, the system flags them automatically
+
+### Core Mission
+
+> **To build trust in AI for compliance by making every extraction deterministic, verifiable, and auditable.**
+
+### Target Users
+
+| User | Use Case |
+|------|----------|
+| **Compliance Officers** | Verify policies don't violate regulations |
+| **Legal Teams** | Extract authority hierarchies from contracts |
+| **Risk Managers** | Identify prohibited actions across documents |
+| **Auditors** | Document review with proof of extraction |
+
+### Value Proposition
+
+| Traditional RAG | Our System |
+|----------------|------------|
+| Returns anything relevant | Returns only **validated** facts |
+| "Maybe" answers | "Yes/No" with **proof** |
+| No explanation | **Step-by-step** validation shown |
+| Unverifiable | **Source citations** for every claim |
+| Single document | **Conflict detection** across documents |
+
+### Key Differentiators
+
+✅ **Deterministic Validation** - Rules first, then extraction
+✅ **Rejection, Not Acceptance** - Invalid data is rejected, not tolerated  
+✅ **Visual Verification** - See exactly what AI extracted and why
+✅ **Graph-Native Storage** - Relationships stored in Neo4j for queries
+✅ **Multi-LLM** - Switch providers without changing code
+✅ **Conflict Detection** - Automatic contradiction detection
+
+---
 
 ## Recent Changes
 
@@ -35,11 +91,24 @@ A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pr
 ## Features
 
 - **Text-to-Ontology Extraction** - Extract entities and relationships from text or PDF documents
-- **Deterministic Validation** - All extractions are validated against the ontology schema
-- **Rejection of Invalid Relationships** - Invalid relationships are rejected with clear reasons
+- **Deterministic Validation** - All extractions validated against Neo4j ontology schema
+- **Rejection of Invalid Relationships** - Invalid relationships rejected with clear reasons
 - **Neo4j Graph Storage** - All extracted data stored in Neo4j for querying
 - **Multi-LLM Support** - Works with Groq, Gemini, HuggingFace, and MiniMax
-- **Conflict Detection** - Detects conflicts among extracted entities across multiple documents
+- **Conflict Detection** - Detects conflicts among extracted entities across documents
+- **Visual Verification** - Step-by-step validation with graph highlights
+- **Source Citations** - Exact quotes from source documents
+
+## Technical Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Backend** | FastAPI | High-performance Python API |
+| **Database** | Neo4j Aura | Graph storage for ontology |
+| **LLM** | Groq/MiniMax/Gemini | Entity/relationship extraction |
+| **Frontend** | React + Tailwind | User interface |
+| **Animations** | Framer Motion | Smooth UI transitions |
+| **PDF** | pypdf | Document parsing |
 
 ## Architecture
 

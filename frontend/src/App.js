@@ -4,8 +4,48 @@ import OntologyCanvas from './OntologyCanvas';
 import StatsPanel from './StatsPanel';
 import ExecutionTrace from './ExecutionTrace';
 
+const TIPS = {
+  compliance: [
+    "Try: Can an intern approve a $500 expense?",
+    "The system checks against stored authority rules",
+    "Each decision shows step-by-step validation"
+  ],
+  ontology: [
+    "Paste policy text to extract entities",
+    "Example: The manager can approve up to $10,000",
+    "Rejected items show why validation failed"
+  ],
+  conflicts: [
+    "Scans all documents for contradictions",
+    "Example: Manager allowed $10K vs $5K limit",
+    "Critical conflicts highlighted in red"
+  ]
+};
+
+const QUICK_START = `
+📋 QUICK START GUIDE
+
+1. TEXT-TO-ONTOLOGY TAB:
+   • Paste compliance policy text
+   • Click "Extract Ontology"
+   • View entities in canvas visualization
+
+2. COMPLIANCE Q&A TAB:
+   • Ask questions about extracted data
+   • Example: "Can an intern approve $500?"
+   • See validation steps
+
+3. CONFLICT DETECTION TAB:
+   • Auto-scans for rule conflicts
+   • Red = Critical, Yellow = Warning
+
+💡 TIP: Start with Text-to-Ontology first!
+`;
+
 function App() {
   const [activeTab, setActiveTab] = useState('compliance');
+  const [showTips, setShowTips] = useState(true);
+  const [showQuickStart, setShowQuickStart] = useState(false);
   const [executionLogs, setExecutionLogs] = useState([]);
   const [stats, setStats] = useState({
     documentsScanned: 0,
@@ -30,9 +70,24 @@ function App() {
   return (
     <div className="app-layout">
       <header className="app-header">
-        <h1>Deterministic<span>GraphRAG</span></h1>
-        <span className="subtitle">Text-to-Ontology Engine v0.3.0</span>
+        <div>
+          <h1>Deterministic<span>GraphRAG</span></h1>
+          <span className="subtitle">Text-to-Ontology Engine v0.3.0</span>
+        </div>
+        <button className="help-btn" onClick={() => setShowQuickStart(true)}>
+          ? Help
+        </button>
       </header>
+
+      {showQuickStart && (
+        <div className="modal-overlay" onClick={() => setShowQuickStart(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h2>Quick Start Guide</h2>
+            <pre>{QUICK_START}</pre>
+            <button onClick={() => setShowQuickStart(false)}>Got it!</button>
+          </div>
+        </div>
+      )}
 
       <StatsPanel stats={stats} />
 
@@ -57,6 +112,17 @@ function App() {
             Conflict Detection
           </button>
         </div>
+
+        {showTips && (
+          <div className="tips-banner">
+            <h4>💡 Tips for {activeTab === 'compliance' ? 'Compliance Q&A' : activeTab === 'ontology' ? 'Text-to-Ontology' : 'Conflict Detection'}</h4>
+            <ul>
+              {TIPS[activeTab].map((tip, i) => (
+                <li key={i}>{tip}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {activeTab === 'compliance' && <ComplianceQA addLog={addLog} updateStats={updateStats} />}
         {activeTab === 'ontology' && <OntologyExtraction addLog={addLog} updateStats={updateStats} />}

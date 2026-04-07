@@ -555,3 +555,112 @@ body {
   .stats-panel .stat-item { flex: 1 1 45%; }
   .execution-trace { max-height: 150px; }
 }
+
+/* Help Button */
+.help-btn {
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.help-btn:hover {
+  background: var(--accent-primary);
+  color: var(--bg-primary);
+  border-color: var(--accent-primary);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  padding: 24px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  font-size: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  color: var(--accent-primary);
+}
+
+.modal-content pre {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+.modal-content button {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: var(--accent-primary);
+  border: none;
+  color: var(--bg-primary);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.modal-content button:hover {
+  background: var(--accent-secondary);
+}
+
+/* Tips Banner */
+.tips-banner {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-primary);
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.tips-banner h4 {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  color: var(--accent-primary);
+  margin-bottom: 8px;
+}
+
+.tips-banner ul {
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.tips-banner li {
+  padding: 2px 0;
+  padding-left: 12px;
+  position: relative;
+}
+
+.tips-banner li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--accent-tertiary);
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
+import OntologyCanvas from './OntologyCanvas';
 
 function App() {
   const [activeTab, setActiveTab] = useState('compliance');
@@ -263,6 +264,14 @@ function OntologyExtraction() {
         <div className="extraction-results">
           <div className={`status-banner ${response.status}`}>
             Status: {response.status?.toUpperCase() || 'UNKNOWN'}
+          </div>
+
+          <div className="canvas-section">
+            <h3>Ontology Canvas</h3>
+            <OntologyCanvas 
+              entities={response.entities || []} 
+              relationships={response.relationships || []} 
+            />
           </div>
 
           <div className="entities-section">

@@ -164,6 +164,18 @@ header p {
   flex-wrap: wrap;
 }
 
+.canvas-section {
+  margin: 20px 0;
+}
+
+.canvas-section h3 {
+  color: #aaa;
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
 .rule-tag {
   background: rgba(124, 58, 237, 0.3);
   padding: 5px 12px;

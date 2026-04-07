@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from app.api.routes import router
 from app.api.pdf_routes import router as pdf_router
+from app.api.rule_routes import router as rule_router
 from app.graph.neo4j_client import Neo4jClient
 from app.graph.queries import SEED_RULES, SEED_ONTOLOGY, SEED_KNOWLEDGE_BASE
 from app.services.graphrag_service import GraphRAGService
@@ -14,6 +15,7 @@ from app.services.validation_service import ValidationService
 from app.services.ontology_extraction_service import OntologyExtractionService
 from app.services.deterministic_compliance_service import DeterministicComplianceService
 from app.services.conflict_detection_service import ConflictDetectionService
+from app.services.rule_extraction_service import RuleExtractionService
 from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
 from app.core.huggingface_adapter import HuggingFaceAdapter
@@ -30,6 +32,7 @@ graphrag_service: GraphRAGService = None
 ontology_service: OntologyExtractionService = None
 deterministic_service: DeterministicComplianceService = None
 conflict_service: ConflictDetectionService = None
+rule_extraction_service: RuleExtractionService = None
 
 
 def build_llm_adapter():
@@ -104,10 +107,16 @@ async def lifespan(app: FastAPI):
 
     conflict_service = ConflictDetectionService(graph=graph)
 
+    rule_extraction_service = RuleExtractionService(
+        llm=llm,
+        neo4j=graph
+    )
+
     logger.info("GraphRAG service ready. LLM provider: %s", os.getenv("LLM_PROVIDER"))
     logger.info("Ontology extraction service ready.")
     logger.info("Deterministic compliance service ready.")
     logger.info("Conflict detection service ready.")
+    logger.info("Rule extraction service ready.")
     yield
 
     graph.close()
@@ -132,6 +141,7 @@ app.add_middleware(
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(pdf_router, prefix="/api/v1")
+app.include_router(rule_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["System"])

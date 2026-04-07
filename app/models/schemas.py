@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class QuestionRequest(BaseModel):
@@ -103,3 +103,64 @@ class ConflictDetectionResponse(BaseModel):
     critical: int
     warning: int
     conflicts: list[ConflictItem]
+
+
+class ExtractedRule(BaseModel):
+    id: str
+    rule_type: str = Field(..., description="HAS_AUTHORITY, REQUIRES_PRECONDITION, MUST_FULFILL, IS_PROHIBITED, DEPENDS_ON, APPLIES_TO")
+    source_entity: str = Field(..., description="Source party/entity name")
+    target_entity: str = Field(..., description="Target action/obligation name")
+    description: str
+    limit: Optional[float] = None
+    confidence: float
+    source_text: str = Field(..., description="Original text excerpt from the document")
+    source_document: str
+    source_page: Optional[int] = None
+    status: str = Field(default="pending", description="pending, approved, rejected, edited")
+
+
+class RuleExtractionRequest(BaseModel):
+    text: str = Field(..., min_length=10, description="Policy text to extract rules from")
+    document_id: Optional[str] = None
+    document_name: Optional[str] = None
+
+
+class RuleReviewUpdate(BaseModel):
+    rule_id: str
+    status: str = Field(..., description="approved or rejected")
+    edits: Optional[dict] = Field(default=None, description="Optional edits to rule fields")
+
+
+class BulkRuleReview(BaseModel):
+    reviews: List[RuleReviewUpdate]
+
+
+class RuleApplicationRequest(BaseModel):
+    document_id: Optional[str] = None
+    rule_ids: Optional[List[str]] = None
+
+
+class RuleApplicationResponse(BaseModel):
+    applied: int
+    skipped: int
+    errors: List[str]
+
+
+class PendingRulesResponse(BaseModel):
+    document_id: str
+    document_name: Optional[str]
+    rules: List[ExtractedRule]
+    stats: dict
+
+
+class RuleManualCreate(BaseModel):
+    rule_type: str
+    source_entity: str
+    target_entity: str
+    description: str
+    limit: Optional[float] = None
+
+
+class RuleListResponse(BaseModel):
+    rules: List[dict]
+    count: int

@@ -320,3 +320,189 @@ CALL {
 RETURN entity1, entity2, target, conflict_type, severity
 ORDER BY severity
 """
+
+# Rule Management Queries
+
+SAVE_PENDING_RULE = """
+MERGE (r:PendingRule {rule_id: $rule_id})
+SET r.rule_type = $rule_type,
+    r.source_entity = $source_entity,
+    r.target_entity = $target_entity,
+    r.description = $description,
+    r.limit = $limit,
+    r.confidence = $confidence,
+    r.source_text = $source_text,
+    r.source_document = $source_document,
+    r.source_page = $source_page,
+    r.status = 'pending',
+    r.created_at = datetime()
+RETURN r.rule_id AS rule_id
+"""
+
+GET_PENDING_RULES = """
+MATCH (r:PendingRule)
+WHERE $document_id IS NULL OR r.source_document = $document_id
+RETURN r.rule_id AS rule_id,
+       r.rule_type AS rule_type,
+       r.source_entity AS source_entity,
+       r.target_entity AS target_entity,
+       r.description AS description,
+       r.limit AS limit,
+       r.confidence AS confidence,
+       r.source_text AS source_text,
+       r.source_document AS source_document,
+       r.source_page AS source_page,
+       r.status AS status
+ORDER BY r.created_at DESC
+"""
+
+UPDATE_PENDING_RULE_STATUS = """
+MATCH (r:PendingRule {rule_id: $rule_id})
+SET r.status = $status
+"""
+
+UPDATE_PENDING_RULE_FIELDS = """
+MATCH (r:PendingRule {rule_id: $rule_id})
+SET r += $fields
+RETURN r.rule_id AS rule_id
+"""
+
+APPLY_RULE_TO_GRAPH = """
+MATCH (r:PendingRule {rule_id: $rule_id})
+WHERE r.status = 'approved'
+WITH r
+CALL {
+  WITH r
+  MATCH (source)
+  WHERE source.name = $source_name
+  WITH source, r
+  MATCH (target)
+  WHERE target.name = $target_name
+  WITH source, target, r
+  CALL apoc.create.relationship(source, r.rule_type,
+    CASE WHEN r.limit IS NOT NULL THEN {limit: r.limit, source_document: r.source_document, applied_at: datetime()}
+         ELSE {source_document: r.source_document, applied_at: datetime()}
+    END, target)
+  YIELD rel
+  RETURN rel
+}
+RETURN count(*) AS applied
+"""
+
+APPLY_RULE_TO_GRAPH_NO_APOC = """
+MATCH (r:PendingRule {rule_id: $rule_id})
+WHERE r.status = 'approved'
+WITH r
+MATCH (source)
+WHERE source.name = $source_name
+WITH source, r
+MATCH (target)
+WHERE target.name = $target_name
+WITH source, target, r
+CALL {
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'HAS_AUTHORITY'
+  MERGE (source)-[rel:HAS_AUTHORITY {source_document: r.source_document}]->(target)
+  SET rel.limit = r.limit, rel.applied_at = datetime()
+  RETURN rel
+  UNION
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'REQUIRES_PRECONDITION'
+  MERGE (source)-[rel:REQUIRES_PRECONDITION {source_document: r.source_document}]->(target)
+  SET rel.applied_at = datetime()
+  RETURN rel
+  UNION
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'MUST_FULFILL'
+  MERGE (source)-[rel:MUST_FULFILL {source_document: r.source_document}]->(target)
+  SET rel.applied_at = datetime()
+  RETURN rel
+  UNION
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'IS_PROHIBITED'
+  MERGE (source)-[rel:IS_PROHIBITED {source_document: r.source_document}]->(target)
+  SET rel.applied_at = datetime()
+  RETURN rel
+  UNION
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'DEPENDS_ON'
+  MERGE (source)-[rel:DEPENDS_ON {source_document: r.source_document}]->(target)
+  SET rel.applied_at = datetime()
+  RETURN rel
+  UNION
+  WITH source, target, r
+  WITH source, target, r
+  WHERE r.rule_type = 'APPLIES_TO'
+  MERGE (source)-[rel:APPLIES_TO {source_document: r.source_document}]->(target)
+  SET rel.applied_at = datetime()
+  RETURN rel
+}
+RETURN count(*) AS applied
+"""
+
+CREATE_PARTY_IF_NOT_EXISTS = """
+MERGE (p:Party {name: $name})
+ON CREATE SET p.description = $description, p.created_from = 'rule_management'
+RETURN p.name AS name
+"""
+
+CREATE_ACTION_IF_NOT_EXISTS = """
+MERGE (a:Action {name: $name})
+ON CREATE SET a.description = $description, a.created_from = 'rule_management'
+RETURN a.name AS name
+"""
+
+CREATE_OBLIGATION_IF_NOT_EXISTS = """
+MERGE (o:Obligation {name: $name})
+ON CREATE SET o.description = $description, o.created_from = 'rule_management'
+RETURN o.name AS name
+"""
+
+CREATE_PROHIBITED_ACTION_IF_NOT_EXISTS = """
+MERGE (pa:ProhibitedAction {name: $name})
+ON CREATE SET pa.created_from = 'rule_management'
+RETURN pa.name AS name
+"""
+
+CREATE_PRECONDITION_IF_NOT_EXISTS = """
+MERGE (pc:Precondition {name: $name})
+ON CREATE SET pc.description = $description, pc.created_from = 'rule_management'
+RETURN pc.name AS name
+"""
+
+CREATE_CONDITION_IF_NOT_EXISTS = """
+MERGE (c:Condition {name: $name})
+ON CREATE SET c.description = $description, c.created_from = 'rule_management'
+RETURN c.name AS name
+"""
+
+GET_ALL_APPLIED_RULES = """
+MATCH (source)-[r]->(target)
+WHERE r.source_document IS NOT NULL
+RETURN source.name AS source,
+       type(r) AS rule_type,
+       target.name AS target,
+       r.limit AS limit,
+       r.source_document AS source_document,
+       r.applied_at AS applied_at
+ORDER BY r.applied_at DESC
+"""
+
+DELETE_PENDING_RULE = """
+MATCH (r:PendingRule {rule_id: $rule_id})
+DELETE r
+"""
+
+GET_PENDING_RULES_STATS = """
+MATCH (r:PendingRule)
+RETURN count(r) AS total,
+       count(CASE WHEN r.status = 'pending' THEN r END) AS pending,
+       count(CASE WHEN r.status = 'approved' THEN r END) AS approved,
+       count(CASE WHEN r.status = 'rejected' THEN r END) AS rejected,
+       collect(DISTINCT r.source_document) AS documents
+"""

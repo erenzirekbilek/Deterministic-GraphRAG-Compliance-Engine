@@ -1,6 +1,8 @@
 import logging
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
+import uuid
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -172,3 +174,189 @@ class Neo4jClient:
         """
         with self.driver.session() as session:
             session.run(query, document_id=document_id)
+
+    def save_pending_rule(self, rule_id, rule_type, source_entity, target_entity,
+                          description, limit, confidence, source_text, source_document, source_page):
+        query = """
+        MERGE (r:PendingRule {rule_id: $rule_id})
+        SET r.rule_type = $rule_type,
+            r.source_entity = $source_entity,
+            r.target_entity = $target_entity,
+            r.description = $description,
+            r.limit = $limit,
+            r.confidence = $confidence,
+            r.source_text = $source_text,
+            r.source_document = $source_document,
+            r.source_page = $source_page,
+            r.status = 'pending',
+            r.created_at = datetime()
+        RETURN r.rule_id AS rule_id
+        """
+        with self.driver.session() as session:
+            result = session.run(query, rule_id=rule_id, rule_type=rule_type,
+                                 source_entity=source_entity, target_entity=target_entity,
+                                 description=description, limit=limit, confidence=confidence,
+                                 source_text=source_text, source_document=source_document,
+                                 source_page=source_page)
+            record = result.single()
+            return record["rule_id"] if record else None
+
+    def get_pending_rules(self, document_id=None):
+        query = """
+        MATCH (r:PendingRule)
+        WHERE $document_id IS NULL OR r.source_document = $document_id
+        RETURN r.rule_id AS rule_id,
+               r.rule_type AS rule_type,
+               r.source_entity AS source_entity,
+               r.target_entity AS target_entity,
+               r.description AS description,
+               r.limit AS limit,
+               r.confidence AS confidence,
+               r.source_text AS source_text,
+               r.source_document AS source_document,
+               r.source_page AS source_page,
+               r.status AS status
+        ORDER BY r.created_at DESC
+        """
+        with self.driver.session() as session:
+            results = session.run(query, document_id=document_id)
+            return [dict(record) for record in results]
+
+    def update_pending_rule_status(self, rule_id, status):
+        query = """
+        MATCH (r:PendingRule {rule_id: $rule_id})
+        SET r.status = $status
+        """
+        with self.driver.session() as session:
+            session.run(query, rule_id=rule_id, status=status)
+
+    def update_pending_rule_fields(self, rule_id, fields):
+        query = """
+        MATCH (r:PendingRule {rule_id: $rule_id})
+        SET r += $fields
+        RETURN r.rule_id AS rule_id
+        """
+        with self.driver.session() as session:
+            result = session.run(query, rule_id=rule_id, fields=fields)
+            record = result.single()
+            return record["rule_id"] if record else None
+
+    def delete_pending_rule(self, rule_id):
+        query = """
+        MATCH (r:PendingRule {rule_id: $rule_id})
+        DELETE r
+        """
+        with self.driver.session() as session:
+            session.run(query, rule_id=rule_id)
+
+    def get_pending_rules_stats(self):
+        query = """
+        MATCH (r:PendingRule)
+        RETURN count(r) AS total,
+               count(CASE WHEN r.status = 'pending' THEN r END) AS pending,
+               count(CASE WHEN r.status = 'approved' THEN r END) AS approved,
+               count(CASE WHEN r.status = 'rejected' THEN r END) AS rejected,
+               collect(DISTINCT r.source_document) AS documents
+        """
+        with self.driver.session() as session:
+            results = session.run(query)
+            record = results.single()
+            if record:
+                return {
+                    "total": record["total"],
+                    "pending": record["pending"],
+                    "approved": record["approved"],
+                    "rejected": record["rejected"],
+                    "documents": record["documents"]
+                }
+            return {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "documents": []}
+
+    def _ensure_node_exists(self, label, name, description=""):
+        query = f"""
+        MERGE (n:{label} {{name: $name}})
+        ON CREATE SET n.description = $description, n.created_from = 'rule_management'
+        RETURN n.name AS name
+        """
+        with self.driver.session() as session:
+            session.run(query, name=name, description=description)
+
+    def apply_rule_to_graph(self, rule_id, source_name, target_name, rule_type, limit=None):
+        query = """
+        MATCH (r:PendingRule {rule_id: $rule_id})
+        WHERE r.status = 'approved'
+        WITH r
+        MATCH (source)
+        WHERE source.name = $source_name
+        WITH source, r
+        MATCH (target)
+        WHERE target.name = $target_name
+        WITH source, target, r
+        CALL {
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'HAS_AUTHORITY'
+          MERGE (source)-[rel:HAS_AUTHORITY {source_document: r.source_document}]->(target)
+          SET rel.limit = r.limit, rel.applied_at = datetime()
+          RETURN rel
+          UNION
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'REQUIRES_PRECONDITION'
+          MERGE (source)-[rel:REQUIRES_PRECONDITION {source_document: r.source_document}]->(target)
+          SET rel.applied_at = datetime()
+          RETURN rel
+          UNION
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'MUST_FULFILL'
+          MERGE (source)-[rel:MUST_FULFILL {source_document: r.source_document}]->(target)
+          SET rel.applied_at = datetime()
+          RETURN rel
+          UNION
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'IS_PROHIBITED'
+          MERGE (source)-[rel:IS_PROHIBITED {source_document: r.source_document}]->(target)
+          SET rel.applied_at = datetime()
+          RETURN rel
+          UNION
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'DEPENDS_ON'
+          MERGE (source)-[rel:DEPENDS_ON {source_document: r.source_document}]->(target)
+          SET rel.applied_at = datetime()
+          RETURN rel
+          UNION
+          WITH source, target, r
+          WITH source, target, r
+          WHERE r.rule_type = 'APPLIES_TO'
+          MERGE (source)-[rel:APPLIES_TO {source_document: r.source_document}]->(target)
+          SET rel.applied_at = datetime()
+          RETURN rel
+        }
+        RETURN count(*) AS applied
+        """
+        with self.driver.session() as session:
+            result = session.run(query, rule_id=rule_id, source_name=source_name,
+                                 target_name=target_name)
+            record = result.single()
+            return record["applied"] if record else 0
+
+    def get_all_applied_rules(self):
+        query = """
+        MATCH (source)-[r]->(target)
+        WHERE r.source_document IS NOT NULL
+        RETURN source.name AS source,
+               type(r) AS rule_type,
+               target.name AS target,
+               r.limit AS limit,
+               r.source_document AS source_document,
+               r.applied_at AS applied_at
+        ORDER BY r.applied_at DESC
+        """
+        with self.driver.session() as session:
+            results = session.run(query)
+            return [dict(record) for record in results]
+
+    def generate_rule_id(self):
+        return f"RULE-{uuid.uuid4().hex[:8].upper()}"

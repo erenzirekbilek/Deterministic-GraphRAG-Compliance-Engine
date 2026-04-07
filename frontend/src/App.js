@@ -3,6 +3,7 @@ import './App.css';
 import OntologyCanvas from './OntologyCanvas';
 import StatsPanel from './StatsPanel';
 import ExecutionTrace from './ExecutionTrace';
+import RuleManager from './RuleManager';
 
 const TIPS = {
   compliance: [
@@ -19,6 +20,11 @@ const TIPS = {
     "Scans all documents for contradictions",
     "Example: Manager allowed $10K vs $5K limit",
     "Critical conflicts highlighted in red"
+  ],
+  rules: [
+    "Upload policy documents to auto-extract rules",
+    "Review each rule before applying to Neo4j",
+    "Use manual entry for one-off rules"
   ]
 };
 
@@ -111,11 +117,17 @@ function App() {
           >
             Conflict Detection
           </button>
+          <button 
+            className={activeTab === 'rules' ? 'active' : ''} 
+            onClick={() => setActiveTab('rules')}
+          >
+            Rule Manager
+          </button>
         </div>
 
         {showTips && (
           <div className="tips-banner">
-            <h4>💡 Tips for {activeTab === 'compliance' ? 'Compliance Q&A' : activeTab === 'ontology' ? 'Text-to-Ontology' : 'Conflict Detection'}</h4>
+            <h4>💡 Tips for {activeTab === 'compliance' ? 'Compliance Q&A' : activeTab === 'ontology' ? 'Text-to-Ontology' : activeTab === 'conflicts' ? 'Conflict Detection' : 'Rule Manager'}</h4>
             <ul>
               {TIPS[activeTab].map((tip, i) => (
                 <li key={i}>{tip}</li>
@@ -127,6 +139,7 @@ function App() {
         {activeTab === 'compliance' && <ComplianceQA addLog={addLog} updateStats={updateStats} />}
         {activeTab === 'ontology' && <OntologyExtraction addLog={addLog} updateStats={updateStats} />}
         {activeTab === 'conflicts' && <ConflictDetection addLog={addLog} />}
+        {activeTab === 'rules' && <RuleManager addLog={addLog} updateStats={updateStats} />}
       </main>
 
       <ExecutionTrace logs={executionLogs} />

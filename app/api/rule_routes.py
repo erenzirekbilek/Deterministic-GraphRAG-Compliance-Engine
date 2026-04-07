@@ -10,7 +10,7 @@ from app.models.schemas import (
     RuleListResponse,
 )
 
-router = APIRouter(prefix="/api/v1/rules", tags=["Rule Management"])
+router = APIRouter(tags=["Rule Management"])
 
 rule_service = None
 

@@ -33,6 +33,7 @@ ontology_service: OntologyExtractionService = None
 deterministic_service: DeterministicComplianceService = None
 conflict_service: ConflictDetectionService = None
 rule_extraction_service: RuleExtractionService = None
+neo4j: Neo4jClient = None
 
 
 def build_llm_adapter():
@@ -51,7 +52,7 @@ def build_llm_adapter():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graphrag_service, ontology_service, deterministic_service, conflict_service
+    global graphrag_service, ontology_service, deterministic_service, conflict_service, rule_extraction_service, neo4j
 
     logger.info("Starting up Deterministic GraphRAG Compliance Engine...")
 
@@ -60,6 +61,7 @@ async def lifespan(app: FastAPI):
         user=os.getenv("NEO4J_USER"),
         password=os.getenv("NEO4J_PASSWORD")
     )
+    neo4j = graph
 
     existing = graph.get_all_rules()
     if not existing:

@@ -41,8 +41,8 @@ function RuleManager({ addLog, updateStats }) {
   const fetchPendingRules = async (docId = null) => {
     try {
       const url = docId
-        ? `http://localhost:8000/api/v1/rules/pending?document_id=${docId}`
-        : 'http://localhost:8000/api/v1/rules/pending';
+        ? `http://localhost:8000/api/v1/pending?document_id=${docId}`
+        : 'http://localhost:8000/api/v1/pending';
       const res = await fetch(url);
       const data = await res.json();
       setRules(data.rules || []);
@@ -61,7 +61,7 @@ function RuleManager({ addLog, updateStats }) {
     addLog('RULE_EXTRACT', 'Extracting rules from text...');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/rules/extract', {
+      const res = await fetch('http://localhost:8000/api/v1/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, document_name: `text-${Date.now()}` }),
@@ -89,7 +89,7 @@ function RuleManager({ addLog, updateStats }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('http://localhost:8000/api/v1/rules/extract/pdf', {
+      const res = await fetch('http://localhost:8000/api/v1/extract/pdf', {
         method: 'POST',
         body: formData,
       });
@@ -112,7 +112,7 @@ function RuleManager({ addLog, updateStats }) {
 
   const handleReview = async (ruleId, status, edits = null) => {
     try {
-      await fetch('http://localhost:8000/api/v1/rules/review', {
+      await fetch('http://localhost:8000/api/v1/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rule_id: ruleId, status, edits }),
@@ -130,7 +130,7 @@ function RuleManager({ addLog, updateStats }) {
 
     try {
       const reviews = pendingRules.map(r => ({ rule_id: r.rule_id, status }));
-      await fetch('http://localhost:8000/api/v1/rules/review/bulk', {
+      await fetch('http://localhost:8000/api/v1/review/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviews }),
@@ -147,7 +147,7 @@ function RuleManager({ addLog, updateStats }) {
     addLog('RULE_APPLY', 'Applying approved rules to Neo4j...');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/rules/apply', {
+      const res = await fetch('http://localhost:8000/api/v1/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentDoc ? { document_id: currentDoc } : {}),
@@ -166,7 +166,7 @@ function RuleManager({ addLog, updateStats }) {
 
   const handleDeleteRule = async (ruleId) => {
     try {
-      await fetch(`http://localhost:8000/api/v1/rules/pending/${ruleId}`, { method: 'DELETE' });
+      await fetch(`http://localhost:8000/api/v1/pending/${ruleId}`, { method: 'DELETE' });
       fetchPendingRules();
     } catch (err) {
       setError(err.message);
@@ -176,7 +176,7 @@ function RuleManager({ addLog, updateStats }) {
   const handleManualCreate = async () => {
     if (!manualRule.source_entity || !manualRule.target_entity || !manualRule.description) return;
     try {
-      await fetch('http://localhost:8000/api/v1/rules/manual', {
+      await fetch('http://localhost:8000/api/v1/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -359,6 +359,15 @@ CALL {
   WHERE a.name CONTAINS pa.name OR pa.name CONTAINS a.name
   RETURN p.name AS entity1, p.name AS entity2, a.name AS target,
          'prohibited' AS conflict_type, 1 AS severity
+  UNION
+  // Obligation conflicts
+  MATCH (p1:ExtractedEntity)-[r1:MUST_FULFILL]->(o:Obligation)
+  MATCH (p2:ExtractedEntity)-[r2:MUST_FULFILL]->(o)
+  WHERE p1.document_id <> p2.document_id
+    AND p1.entity_type = 'Party'
+    AND p2.entity_type = 'Party'
+  RETURN p1.name AS entity1, p2.name AS entity2, o.name AS target,
+         'obligation' AS conflict_type, 2 AS severity
 }
 RETURN entity1, entity2, target, conflict_type, severity
 ORDER BY severity

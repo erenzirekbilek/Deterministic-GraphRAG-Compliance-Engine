@@ -104,20 +104,34 @@ class Neo4jClient:
             return {"is_valid": False, "valid_sources": [], "valid_targets": []}
 
     def save_extracted_entity(self, document_id: str, name: str, entity_type: str, mention: str, confidence: float):
-        """Save an extracted entity to Neo4j."""
-        query = """
-        MERGE (e:ExtractedEntity {document_id: $document_id, name: $name})
-        SET e.entity_type = $entity_type,
-            e.mention = $mention,
-            e.confidence = $confidence
+        """Save an extracted entity to Neo4j as BOTH ExtractedEntity and its actual type."""
+        label_map = {
+            "Authority": "Authority",
+            "Precondition": "Precondition",
+            "Obligation": "Obligation",
+            "ProhibitedAction": "ProhibitedAction",
+            "Condition": "Condition",
+            "Party": "Party",
+            "Action": "Action",
+        }
+        actual_label = label_map.get(entity_type, "ExtractedEntity")
+
+        query = f"""
+        MERGE (e:{actual_label} {{name: $name}})
+        ON CREATE SET e.created_from = 'extraction', e.description = $mention
+        MERGE (ee:ExtractedEntity {{document_id: $document_id, name: $name}})
+        SET ee.entity_type = $entity_type,
+            ee.mention = $mention,
+            ee.confidence = $confidence
+        MERGE (ee)-[:EXTRACTED_AS]->(e)
         """
         with self.driver.session() as session:
-            session.run(query, document_id=document_id, name=name, entity_type=entity_type, 
+            session.run(query, document_id=document_id, name=name, entity_type=entity_type,
                        mention=mention, confidence=confidence)
 
-    def save_extracted_relationship(self, document_id: str, source: str, target: str, 
-                                     relationship: str, justification: str, limit: int = None):
-        """Save an extracted relationship to Neo4j."""
+    def save_extracted_relationship(self, document_id: str, source: str, target: str,
+                                      relationship: str, justification: str, limit: int = None):
+        """Save an extracted relationship as BOTH the actual relationship type and EXTRACTED_RELATIONSHIP."""
         query = """
         MATCH (e1:ExtractedEntity {document_id: $document_id, name: $source})
         MATCH (e2:ExtractedEntity {document_id: $document_id, name: $target})
@@ -126,6 +140,48 @@ class Neo4jClient:
             r.justification = $justification,
             r.is_validated = false,
             r.limit = coalesce($limit, 0)
+        WITH e1, e2, r
+        MATCH (s) WHERE s.name = $source
+        MATCH (t) WHERE t.name = $target
+        CALL {
+          WITH s, t, document_id, justification, limit, relationship
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'HAS_AUTHORITY'
+          MERGE (s)-[rel:HAS_AUTHORITY {extracted_from: document_id}]->(t)
+          SET rel.justification = justification, rel.limit = coalesce(limit, 0)
+          RETURN rel
+          UNION
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'REQUIRES_PRECONDITION'
+          MERGE (s)-[rel:REQUIRES_PRECONDITION {extracted_from: document_id}]->(t)
+          SET rel.justification = justification
+          RETURN rel
+          UNION
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'MUST_FULFILL'
+          MERGE (s)-[rel:MUST_FULFILL {extracted_from: document_id}]->(t)
+          SET rel.justification = justification
+          RETURN rel
+          UNION
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'IS_PROHIBITED'
+          MERGE (s)-[rel:IS_PROHIBITED {extracted_from: document_id}]->(t)
+          SET rel.justification = justification
+          RETURN rel
+          UNION
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'DEPENDS_ON'
+          MERGE (s)-[rel:DEPENDS_ON {extracted_from: document_id}]->(t)
+          SET rel.justification = justification
+          RETURN rel
+          UNION
+          WITH s, t, document_id, justification, limit
+          WHERE relationship = 'APPLIES_TO'
+          MERGE (s)-[rel:APPLIES_TO {extracted_from: document_id}]->(t)
+          SET rel.justification = justification
+          RETURN rel
+        }
+        RETURN count(*) AS created
         """
         with self.driver.session() as session:
             session.run(query, document_id=document_id, source=source, target=target,

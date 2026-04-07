@@ -8,7 +8,8 @@ A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pr
 - **Deterministic Validation** - All extractions are validated against the ontology schema
 - **Rejection of Invalid Relationships** - Invalid relationships are rejected with clear reasons
 - **Neo4j Graph Storage** - All extracted data stored in Neo4j for querying
-- **Model-Agnostic** - Supports Google Gemini and Groq LLMs
+- **Multi-LLM Support** - Works with Groq, Gemini, HuggingFace, and MiniMax
+- **Conflict Detection** - Detects conflicts among extracted entities across multiple documents
 
 ## Architecture
 
@@ -29,6 +30,23 @@ A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pr
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Supported LLM Providers
+
+| Provider | Model | Status |
+|----------|-------|--------|
+| **Groq** | llama-3.3-70b-versatile | ✅ Default |
+| **MiniMax** | MiniMax-M2.1 | ✅ |
+| **Gemini** | gemini-2.0-flash | ✅ |
+| **HuggingFace** | mistralai/Mistral-7B-Instruct-v0.2 | ✅ |
+
+### LLM Adapter Features
+
+- **Retry Mechanism**: Exponential backoff (2s → 4s → 8s) for rate limits
+- **JSON Mode**: Forces valid JSON output (Groq)
+- **JSON Repair Buffer**: Removes markdown, "Here is the JSON..." text
+- **Increased Tokens**: 4096 max_tokens (vs default 512)
+- **Strict System Prompts**: No conversational filler
+
 ## Ontology Schema
 
 ### Entity Types
@@ -37,8 +55,8 @@ A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pr
 - **Obligation** - A requirement that a party must fulfill
 - **ProhibitedAction** - An action that is explicitly forbidden
 - **Condition** - A conditional clause that modifies a rule
-- **Party** - A person, organization or role
-- **Action** - An activity or task that can be performed
+- **Party** - A person, organization or role (also: Authority, Role, User, Employee)
+- **Action** - An activity or task that can be performed (also: Activity, Task)
 
 ### Valid Relationships
 - `HAS_AUTHORITY` - Party → Action
@@ -60,6 +78,10 @@ A **Text-to-Ontology** extraction engine that maps legal/compliance text to a pr
 - `POST /api/v1/ask` - Ask compliance questions
 - `GET /api/v1/rules` - List rules
 
+### Conflict Detection
+- `GET /api/v1/conflicts` - Detect all conflicts
+- `GET /api/v1/conflicts/entity/{entity_name}` - Conflicts for specific entity
+
 ### System
 - `GET /api/v1/health` - Health check
 - `GET /` - Root info
@@ -77,8 +99,23 @@ pip install -r requirements.txt
 Copy `.env.example` to `.env` and fill in your API keys:
 
 ```env
-LLM_PROVIDER=gemini
+# LLM Provider — choose: groq | minimax | huggingface | gemini
+LLM_PROVIDER=groq
+
+# Groq (free at console.groq.com)
+GROQ_API_KEY=your_groq_api_key
+
+# MiniMax (free at platform.minimax.io)
+MINIMAX_API_KEY=your_minimax_api_key
+MINIMAX_MODEL=MiniMax-M2.1
+
+# HuggingFace (free at huggingface.co)
+HUGGINGFACE_API_KEY=your_huggingface_api_key
+
+# Google Gemini (free at ai.google.dev)
 GEMINI_API_KEY=your_gemini_api_key
+
+# Neo4j Aura Free (console.neo4j.io)
 NEO4J_URI=neo4j+s://xxxx.databases.neo4j.io
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
@@ -118,23 +155,57 @@ curl -X POST http://localhost:8000/api/v1/extract/pdf \
   -F "file=@document.pdf"
 ```
 
+### Example Text for Testing
+
+```
+The manager can approve expense requests up to $10,000. The CFO has authority to approve requests up to $50,000. The CEO can approve any request without limit. Interns cannot approve any requests.
+```
+
 ### Example Response
 
 ```json
 {
-  "document_id": "abc-123",
+  "document_id": "doc_1234567890",
   "entities": [
-    {"name": "Manager", "entity_type": "Party", "mention": "The Manager", "confidence": 0.95},
-    {"name": "approve requests", "entity_type": "Action", "mention": "approve requests", "confidence": 0.90}
+    {"name": "manager", "entity_type": "Party", "mention": "The manager", "confidence": 0.95},
+    {"name": "approve expense requests", "entity_type": "Action", "mention": "approve expense requests", "confidence": 0.90},
+    {"name": "cfo", "entity_type": "Party", "mention": "The CFO", "confidence": 0.95},
+    {"name": "ceo", "entity_type": "Party", "mention": "The CEO", "confidence": 0.95},
+    {"name": "interns", "entity_type": "Party", "mention": "Interns", "confidence": 0.95}
   ],
   "relationships": [
     {
-      "source": "Manager",
-      "target": "approve requests",
+      "source": "manager",
+      "target": "approve expense requests",
       "relationship": "HAS_AUTHORITY",
-      "justification": "The Manager has authority to approve requests..."
+      "limit": 10000,
+      "justification": "The manager can approve expense requests up to $10,000"
+    },
+    {
+      "source": "cfo",
+      "target": "approve expense requests",
+      "relationship": "HAS_AUTHORITY",
+      "limit": 50000,
+      "justification": "The CFO has authority to approve requests up to $50,000"
+    },
+    {
+      "source": "ceo",
+      "target": "approve expense requests",
+      "relationship": "HAS_AUTHORITY",
+      "limit": 0,
+      "justification": "The CEO can approve any request without limit"
+    },
+    {
+      "source": "interns",
+      "target": "approve expense requests",
+      "relationship": "IS_PROHIBITED",
+      "justification": "Interns cannot approve any requests"
     }
   ],
+  "validation": [
+    {"relationship": "HAS_AUTHORITY", "valid": true, "reason": "Valid relationship"}
+  ],
+  "rejected": [],
   "status": "success"
 }
 ```
@@ -142,10 +213,15 @@ curl -X POST http://localhost:8000/api/v1/extract/pdf \
 ## Technology Stack
 
 - **Backend:** FastAPI, Neo4j, Python
-- **LLM:** Google Gemini / Groq
+- **LLM:** Groq / MiniMax / Google Gemini / HuggingFace
 - **Frontend:** React
 - **PDF Processing:** pypdf
 
-## Version
+## Version History
 
-- v0.2.0 - Text-to-Ontology extraction with validation
+- **v0.2.0** - Text-to-Ontology extraction with validation
+  - Multi-LLM support (Groq, MiniMax, Gemini, HuggingFace)
+  - Retry mechanism with exponential backoff
+  - JSON mode and repair buffer
+  - Expanded ontology validation types
+  - Conflict detection across documents

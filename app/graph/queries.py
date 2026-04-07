@@ -209,6 +209,37 @@ SET delete_records.description = "Delete system records"
 MERGE (view_reports:Action {name: "view_reports"})
 SET view_reports.description = "View reports and data"
 
+MERGE (submit_report:Action {name: "submit_report"})
+SET submit_report.description = "Submit a report"
+
+// OBLIGATIONS
+MERGE (security_training:Obligation {name: "security_training"})
+SET security_training.description = "Complete annual security training"
+
+MERGE (compliance_review:Obligation {name: "compliance_review"})
+SET compliance_review.description = "Participate in quarterly compliance review"
+
+// PRECONDITIONS
+MERGE (manager_approval:Precondition {name: "manager_approval"})
+SET manager_approval.description = "Requires manager approval before proceeding"
+
+MERGE (budget_check:Precondition {name: "budget_check"})
+SET budget_check.description = "Budget availability must be verified"
+
+// PROHIBITED ACTIONS
+MERGE (unauthorized_access:ProhibitedAction {name: "unauthorized_access"})
+SET unauthorized_access.description = "Accessing systems without authorization"
+
+MERGE (data_deletion:ProhibitedAction {name: "data_deletion"})
+SET data_deletion.description = "Deleting records without proper authority"
+
+// CONDITIONS
+MERGE (emergency_condition:Condition {name: "emergency"})
+SET emergency_condition.description = "Emergency situation overrides normal limits"
+
+MERGE (above_threshold:Condition {name: "above_threshold"})
+SET above_threshold.description = "Amount exceeds standard approval threshold"
+
 // AUTHORITY RELATIONSHIPS (HAS_AUTHORITY)
 MERGE (manager)-[:HAS_AUTHORITY {limit: 10000}]->(approve_request)
 MERGE (ceo)-[:HAS_AUTHORITY {limit: 0}]->(approve_request)
@@ -216,9 +247,8 @@ MERGE (cfo)-[:HAS_AUTHORITY {limit: 50000}]->(approve_request)
 MERGE (director)-[:HAS_AUTHORITY {limit: 25000}]->(approve_request)
 
 // PROHIBITED ACTIONS
-MERGE (intern)-[:IS_PROHIBITED {justification: "Interns cannot approve any requests"}]->(prohibited_intern_approve:ProhibitedAction {name: "approve_request"})
-MERGE (analyst)-[:IS_PROHIBITED {justification: "Analysts cannot approve or delete"}]->(prohibited_analyst_approve:ProhibitedAction {name: "approve_request"})
-MERGE (analyst)-[:IS_PROHIBITED {justification: "Analysts cannot approve or delete"}]->(prohibited_analyst_delete:ProhibitedAction {name: "delete_records"})
+MERGE (intern)-[:IS_PROHIBITED {justification: "Interns cannot approve any requests"}]->(unauthorized_access)
+MERGE (analyst)-[:IS_PROHIBITED {justification: "Analysts cannot approve or delete"}]->(data_deletion)
 
 // VIEW ACCESS
 MERGE (manager)-[:HAS_AUTHORITY]->(view_reports)
@@ -230,6 +260,19 @@ MERGE (director)-[:HAS_AUTHORITY]->(view_reports)
 
 // DELETE ACCESS (restricted)
 MERGE (ceo)-[:HAS_AUTHORITY]->(delete_records)
+
+// OBLIGATION RELATIONSHIPS (MUST_FULFILL)
+MERGE (manager)-[:MUST_FULFILL]->(compliance_review)
+MERGE (intern)-[:MUST_FULFILL]->(security_training)
+MERGE (analyst)-[:MUST_FULFILL]->(security_training)
+MERGE (cfo)-[:MUST_FULFILL]->(compliance_review)
+
+// PRECONDITION RELATIONSHIPS (REQUIRES_PRECONDITION)
+MERGE (approve_request)-[:REQUIRES_PRECONDITION]->(budget_check)
+MERGE (delete_records)-[:REQUIRES_PRECONDITION]->(manager_approval)
+
+// CONDITION RELATIONSHIPS (DEPENDS_ON)
+MERGE (above_threshold)-[:DEPENDS_ON]->(manager_approval)
 """
 
 # Conflict Detection Queries

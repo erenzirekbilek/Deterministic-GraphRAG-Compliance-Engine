@@ -2,11 +2,13 @@ import logging
 from fastapi import APIRouter, HTTPException, Depends
 from app.models.schemas import (
     QuestionRequest, ComplianceResponse, HealthResponse,
-    TextExtractionRequest, OntologyExtractionResponse, OntologySchemaResponse
+    TextExtractionRequest, OntologyExtractionResponse, OntologySchemaResponse,
+    ConflictDetectionResponse
 )
 from app.services.graphrag_service import GraphRAGService
 from app.services.ontology_extraction_service import OntologyExtractionService
 from app.services.deterministic_compliance_service import DeterministicComplianceService
+from app.services.conflict_detection_service import ConflictDetectionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,6 +27,11 @@ def get_ontology_service() -> OntologyExtractionService:
 def get_deterministic_service() -> DeterministicComplianceService:
     from app.main import deterministic_service
     return deterministic_service
+
+
+def get_conflict_service() -> ConflictDetectionService:
+    from app.main import conflict_service
+    return conflict_service
 
 
 @router.get("/health", response_model=HealthResponse, tags=["System"])
@@ -147,4 +154,50 @@ async def get_extraction(
         return result
     except Exception as e:
         logger.error("Error getting extraction: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conflicts", response_model=ConflictDetectionResponse, tags=["Conflict Detection"])
+async def detect_all_conflicts(
+    service: ConflictDetectionService = Depends(get_conflict_service)
+):
+    """
+    Detect all conflicts in the database.
+    
+    Scans for:
+    - Hierarchical conflicts: Multiple parties have authority over same action
+    - Limit conflicts: Same party has different limits for same action
+    - Prohibited conflicts: Party has both authority and prohibition
+    - Obligation conflicts: Multiple parties have same obligation
+    """
+    try:
+        return service.detect_all_conflicts()
+    except Exception as e:
+        logger.error("Error detecting conflicts: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conflicts/entity/{entity_name}", tags=["Conflict Detection"])
+async def detect_entity_conflicts(
+    entity_name: str,
+    service: ConflictDetectionService = Depends(get_conflict_service)
+):
+    """Detect conflicts involving a specific entity."""
+    try:
+        return service.detect_conflicts_for_entity(entity_name)
+    except Exception as e:
+        logger.error("Error detecting entity conflicts: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/conflicts/document/{document_id}", tags=["Conflict Detection"])
+async def detect_document_conflicts(
+    document_id: str,
+    service: ConflictDetectionService = Depends(get_conflict_service)
+):
+    """Detect conflicts involving a specific document."""
+    try:
+        return service.detect_conflicts_for_document(document_id)
+    except Exception as e:
+        logger.error("Error detecting document conflicts: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))

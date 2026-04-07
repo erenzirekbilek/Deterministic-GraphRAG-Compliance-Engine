@@ -89,3 +89,17 @@ class PDFExtractionResponse(BaseModel):
     validation: list[ValidationResult]
     rejected: list[RejectedExtraction]
     status: str
+
+
+class ConflictItem(BaseModel):
+    type: str
+    severity: str
+    message: str
+    details: dict
+
+
+class ConflictDetectionResponse(BaseModel):
+    total_conflicts: int
+    critical: int
+    warning: int
+    conflicts: list[ConflictItem]

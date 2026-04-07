@@ -369,3 +369,56 @@ header p {
   margin-bottom: 15px;
   color: #fff;
 }
+
+.conflict-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.conflict-card.critical {
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.conflict-card.warning {
+  border-left: 4px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.conflict-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.severity-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.severity-badge.critical {
+  background: #ef4444;
+  color: #fff;
+}
+
+.severity-badge.warning {
+  background: #fbbf24;
+  color: #000;
+}
+
+.conflict-type {
+  color: #888;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.conflict-message {
+  color: #ddd;
+  margin-bottom: 10px;
+}

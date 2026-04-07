@@ -13,6 +13,7 @@ from app.services.graphrag_service import GraphRAGService
 from app.services.validation_service import ValidationService
 from app.services.ontology_extraction_service import OntologyExtractionService
 from app.services.deterministic_compliance_service import DeterministicComplianceService
+from app.services.conflict_detection_service import ConflictDetectionService
 from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
 
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 graphrag_service: GraphRAGService = None
 ontology_service: OntologyExtractionService = None
 deterministic_service: DeterministicComplianceService = None
+conflict_service: ConflictDetectionService = None
 
 
 def build_llm_adapter():
@@ -40,7 +42,7 @@ def build_llm_adapter():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graphrag_service, ontology_service, deterministic_service
+    global graphrag_service, ontology_service, deterministic_service, conflict_service
 
     logger.info("Starting up Deterministic GraphRAG Compliance Engine...")
 
@@ -94,9 +96,12 @@ async def lifespan(app: FastAPI):
         graph=graph
     )
 
+    conflict_service = ConflictDetectionService(graph=graph)
+
     logger.info("GraphRAG service ready. LLM provider: %s", os.getenv("LLM_PROVIDER"))
     logger.info("Ontology extraction service ready.")
     logger.info("Deterministic compliance service ready.")
+    logger.info("Conflict detection service ready.")
     yield
 
     graph.close()

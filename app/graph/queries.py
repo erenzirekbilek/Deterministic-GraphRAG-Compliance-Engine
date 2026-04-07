@@ -231,3 +231,92 @@ MERGE (director)-[:HAS_AUTHORITY]->(view_reports)
 // DELETE ACCESS (restricted)
 MERGE (ceo)-[:HAS_AUTHORITY]->(delete_records)
 """
+
+# Conflict Detection Queries
+
+DETECT_HIERARCHICAL_CONFLICTS = """
+MATCH (p1:ExtractedEntity)-[r1:HAS_AUTHORITY]->(a:Action)
+MATCH (p2:ExtractedEntity)-[r2:HAS_AUTHORITY]->(a)
+WHERE p1.document_id <> p2.document_id
+  AND p1.entity_type = 'Party'
+  AND p2.entity_type = 'Party'
+RETURN p1.name AS party1, p2.name AS party2, 
+       a.name AS action,
+       p1.document_id AS doc1, p2.document_id AS doc2,
+       'Hierarchical Conflict: Multiple parties have authority over same action' AS conflict_type
+"""
+
+DETECT_LIMIT_CONFLICTS = """
+MATCH (p:ExtractedEntity)-[r1:HAS_AUTHORITY]->(a:Action)
+MATCH (p)-[r2:HAS_AUTHORITY]->(a)
+WHERE r1.limit <> r2.limit
+  AND r1.limit IS NOT NULL 
+  AND r2.limit IS NOT NULL
+RETURN p.name AS party, a.name AS action, 
+       r1.limit AS limit1, r2.limit AS limit2,
+       'Limit Conflict: Different limits for same party-action' AS conflict_type
+"""
+
+DETECT_PROHIBITED_AUTHORIZED_CONFLICTS = """
+MATCH (p:ExtractedEntity)-[:HAS_AUTHORITY]->(a:Action)
+MATCH (p)-[:IS_PROHIBITED]->(pa:ProhibitedAction)
+WHERE a.name CONTAINS pa.name OR pa.name CONTAINS a.name
+RETURN p.name AS party, a.name AS action, 
+       pa.name AS prohibited_action,
+       'Authorization Conflict: Party can and cannot perform same action' AS conflict_type
+"""
+
+DETECT_OBLIGATION_CONFLICTS = """
+MATCH (p1:ExtractedEntity)-[r1:MUST_FULFILL]->(o:Obligation)
+MATCH (p2:ExtractedEntity)-[r2:MUST_FULFILL]->(o)
+WHERE p1.document_id <> p2.document_id
+  AND p1.entity_type = 'Party'
+  AND p2.entity_type = 'Party'
+RETURN p1.name AS party1, p2.name AS party2,
+       o.name AS obligation,
+       p1.document_id AS doc1, p2.document_id AS doc2,
+       'Obligation Conflict: Multiple parties have same obligation' AS conflict_type
+"""
+
+DETECT_CONFLICTS_BY_DOCUMENT = """
+MATCH (e1:ExtractedEntity {document_id: $document_id})-[r1]->(e2:ExtractedEntity)
+MATCH (e3:ExtractedEntity)-[r2]->(e4:ExtractedEntity)
+WHERE e1.name = e3.name 
+  AND e2.name = e4.name 
+  AND type(r1) = type(r2)
+  AND e1.document_id <> e3.document_id
+RETURN e1.name AS entity1, e2.name AS entity2, 
+       type(r1) AS relationship,
+       e1.document_id AS source_doc, e3.document_id AS conflicting_doc,
+       'Cross-document conflict detected' AS conflict_type
+"""
+
+GET_ALL_CONFLICTS = """
+// Detect all types of conflicts in the database
+CALL {
+  // Hierarchical conflicts
+  MATCH (p1:ExtractedEntity)-[r1:HAS_AUTHORITY]->(a:Action)
+  MATCH (p2:ExtractedEntity)-[r2:HAS_AUTHORITY]->(a)
+  WHERE p1.document_id <> p2.document_id
+    AND p1.entity_type = 'Party'
+    AND p2.entity_type = 'Party'
+  RETURN p1.name AS entity1, p2.name AS entity2, a.name AS target,
+         'hierarchical' AS conflict_type, 1 AS severity
+  UNION
+  // Limit conflicts
+  MATCH (p:ExtractedEntity)-[r1:HAS_AUTHORITY]->(a:Action)
+  MATCH (p)-[r2:HAS_AUTHORITY]->(a)
+  WHERE r1.limit <> r2.limit AND r1.limit IS NOT NULL AND r2.limit IS NOT NULL
+  RETURN p.name AS entity1, p.name AS entity2, a.name AS target,
+         'limit' AS conflict_type, 2 AS severity
+  UNION
+  // Prohibited vs Authorized
+  MATCH (p:ExtractedEntity)-[:HAS_AUTHORITY]->(a:Action)
+  MATCH (p)-[:IS_PROHIBITED]->(pa:ProhibitedAction)
+  WHERE a.name CONTAINS pa.name OR pa.name CONTAINS a.name
+  RETURN p.name AS entity1, p.name AS entity2, a.name AS target,
+         'prohibited' AS conflict_type, 1 AS severity
+}
+RETURN entity1, entity2, target, conflict_type, severity
+ORDER BY severity
+"""

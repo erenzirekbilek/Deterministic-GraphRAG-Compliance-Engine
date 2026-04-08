@@ -261,7 +261,7 @@ class Neo4jClient:
         query = """
         MATCH (r:PendingRule)
         WHERE $document_id IS NULL OR r.source_document = $document_id
-        RETURN r.rule_id AS rule_id,
+        RETURN r.rule_id AS id,
                r.rule_type AS rule_type,
                r.source_entity AS source_entity,
                r.target_entity AS target_entity,
@@ -270,7 +270,7 @@ class Neo4jClient:
                r.confidence AS confidence,
                r.source_text AS source_text,
                r.source_document AS source_document,
-               r.source_page AS source_page,
+               coalesce(r.source_page, -1) AS source_page,
                r.status AS status
         ORDER BY r.created_at DESC
         """

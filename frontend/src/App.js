@@ -169,7 +169,7 @@ function ComplianceQA({ addLog, updateStats }) {
       addLog('API', 'Sending request to backend...');
       const startTime = Date.now();
       
-      const res = await fetch('http://localhost:8000/api/v1/ask', {
+      const res = await fetch('/api/v1/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question, topic: 'approval' }),
@@ -295,7 +295,7 @@ function OntologyExtraction({ addLog, updateStats }) {
       if (payload.file) {
         const formData = new FormData();
         formData.append('file', payload.file);
-        res = await fetch('http://localhost:8000/api/v1/extract/pdf', {
+        res = await fetch('/api/v1/extract/pdf', {
           method: 'POST',
           body: formData,
         });
@@ -303,7 +303,7 @@ function OntologyExtraction({ addLog, updateStats }) {
         addLog('LLM', 'Calling LLM for entity extraction...');
         const startTime = Date.now();
         
-        res = await fetch('http://localhost:8000/api/v1/extract', {
+        res = await fetch('/api/v1/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: payload.text, document_id: docId }),
@@ -440,7 +440,7 @@ function ConflictDetection({ addLog }) {
     addLog('QUERY', 'Fetching conflicts from Neo4j...');
     
     try {
-      const res = await fetch('http://localhost:8000/api/v1/conflicts');
+      const res = await fetch('/api/v1/conflicts');
       const data = await res.json();
       setResponse(data);
       addLog('QUERY', `Found ${data.conflicts?.length || 0} conflicts`, 'success');

@@ -41,13 +41,13 @@ function RuleManager({ addLog, updateStats }) {
   const fetchPendingRules = async (docId = null) => {
     try {
       const url = docId
-        ? `http://localhost:8000/api/v1/pending?document_id=${docId}`
-        : 'http://localhost:8000/api/v1/pending';
+        ? `/api/v1/pending?document_id=${docId}`
+        : '/api/v1/pending';
       const res = await fetch(url);
       const data = await res.json();
       setRules(data.rules || []);
       setStats(data.stats || {});
-      if (data.document_name) setCurrentDoc(data.document_name);
+      if (data.document_id && data.document_id !== 'all') setCurrentDoc(data.document_id);
     } catch (err) {
       setError(err.message);
     }
@@ -61,7 +61,7 @@ function RuleManager({ addLog, updateStats }) {
     addLog('RULE_EXTRACT', 'Extracting rules from text...');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/extract', {
+      const res = await fetch('/api/v1/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, document_name: `text-${Date.now()}` }),
@@ -89,7 +89,7 @@ function RuleManager({ addLog, updateStats }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('http://localhost:8000/api/v1/extract/pdf', {
+      const res = await fetch('/api/v1/extract/pdf', {
         method: 'POST',
         body: formData,
       });
@@ -112,7 +112,7 @@ function RuleManager({ addLog, updateStats }) {
 
   const handleReview = async (ruleId, status, edits = null) => {
     try {
-      await fetch('http://localhost:8000/api/v1/review', {
+      await fetch('/api/v1/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rule_id: ruleId, status, edits }),
@@ -129,8 +129,8 @@ function RuleManager({ addLog, updateStats }) {
     if (pendingRules.length === 0) return;
 
     try {
-      const reviews = pendingRules.map(r => ({ rule_id: r.rule_id, status }));
-      await fetch('http://localhost:8000/api/v1/review/bulk', {
+      const reviews = pendingRules.map(r => ({ rule_id: r.id, status }));
+      await fetch('/api/v1/review/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reviews }),
@@ -147,10 +147,10 @@ function RuleManager({ addLog, updateStats }) {
     addLog('RULE_APPLY', 'Applying approved rules to Neo4j...');
 
     try {
-      const res = await fetch('http://localhost:8000/api/v1/apply', {
+      const res = await fetch('/api/v1/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentDoc ? { document_id: currentDoc } : {}),
+        body: JSON.stringify(document_id ? { document_id: document_id } : {}),
       });
       const data = await res.json();
       setApplyResult(data);
@@ -166,7 +166,7 @@ function RuleManager({ addLog, updateStats }) {
 
   const handleDeleteRule = async (ruleId) => {
     try {
-      await fetch(`http://localhost:8000/api/v1/pending/${ruleId}`, { method: 'DELETE' });
+      await fetch(`/api/v1/pending/${ruleId}`, { method: 'DELETE' });
       fetchPendingRules();
     } catch (err) {
       setError(err.message);
@@ -176,7 +176,7 @@ function RuleManager({ addLog, updateStats }) {
   const handleManualCreate = async () => {
     if (!manualRule.source_entity || !manualRule.target_entity || !manualRule.description) return;
     try {
-      await fetch('http://localhost:8000/api/v1/manual', {
+      await fetch('/api/v1/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -332,15 +332,15 @@ function RuleManager({ addLog, updateStats }) {
                 <tbody>
                   {filteredRules.map((rule) => (
                     <RuleRow
-                      key={rule.rule_id}
+                      key={rule.id}
                       rule={rule}
-                      editing={editingRule === rule.rule_id}
-                      onStartEdit={() => setEditingRule(rule.rule_id)}
+                      editing={editingRule === rule.id}
+                      onStartEdit={() => setEditingRule(rule.id)}
                       onCancelEdit={() => setEditingRule(null)}
-                      onSave={(edits) => handleReview(rule.rule_id, rule.status, edits)}
-                      onApprove={() => handleReview(rule.rule_id, 'approved')}
-                      onReject={() => handleReview(rule.rule_id, 'rejected')}
-                      onDelete={() => handleDeleteRule(rule.rule_id)}
+                      onSave={(edits) => handleReview(rule.id, rule.status, edits)}
+                      onApprove={() => handleReview(rule.id, 'approved')}
+                      onReject={() => handleReview(rule.id, 'rejected')}
+                      onDelete={() => handleDeleteRule(rule.id)}
                     />
                   ))}
                 </tbody>

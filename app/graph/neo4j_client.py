@@ -140,43 +140,41 @@ class Neo4jClient:
             r.justification = $justification,
             r.is_validated = false,
             r.limit = coalesce($limit, 0)
-        WITH e1, e2, r
         MATCH (s) WHERE s.name = $source
         MATCH (t) WHERE t.name = $target
         CALL {
-          WITH s, t, document_id, justification, limit, relationship
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'HAS_AUTHORITY'
+          WHEN relationship = 'HAS_AUTHORITY'
           MERGE (s)-[rel:HAS_AUTHORITY {extracted_from: document_id}]->(t)
           SET rel.justification = justification, rel.limit = coalesce(limit, 0)
           RETURN rel
           UNION
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'REQUIRES_PRECONDITION'
+          WHEN relationship = 'REQUIRES_PRECONDITION'
           MERGE (s)-[rel:REQUIRES_PRECONDITION {extracted_from: document_id}]->(t)
           SET rel.justification = justification
           RETURN rel
           UNION
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'MUST_FULFILL'
+          WHEN relationship = 'MUST_FULFILL'
           MERGE (s)-[rel:MUST_FULFILL {extracted_from: document_id}]->(t)
           SET rel.justification = justification
           RETURN rel
           UNION
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'IS_PROHIBITED'
+          WHEN relationship = 'IS_PROHIBITED'
           MERGE (s)-[rel:IS_PROHIBITED {extracted_from: document_id}]->(t)
           SET rel.justification = justification
           RETURN rel
           UNION
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'DEPENDS_ON'
+          WHEN relationship = 'DEPENDS_ON'
           MERGE (s)-[rel:DEPENDS_ON {extracted_from: document_id}]->(t)
           SET rel.justification = justification
           RETURN rel
           UNION
           WITH s, t, document_id, justification, limit
-          WHERE relationship = 'APPLIES_TO'
+          WHEN relationship = 'APPLIES_TO'
           MERGE (s)-[rel:APPLIES_TO {extracted_from: document_id}]->(t)
           SET rel.justification = justification
           RETURN rel
@@ -340,52 +338,43 @@ class Neo4jClient:
         query = """
         MATCH (r:PendingRule {rule_id: $rule_id})
         WHERE r.status = 'approved'
-        WITH r
         MATCH (source)
         WHERE source.name = $source_name
-        WITH source, r
         MATCH (target)
         WHERE target.name = $target_name
-        WITH source, target, r
         CALL {
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'HAS_AUTHORITY'
+          WHEN r.rule_type = 'HAS_AUTHORITY'
           MERGE (source)-[rel:HAS_AUTHORITY {source_document: r.source_document}]->(target)
           SET rel.limit = r.limit, rel.applied_at = datetime()
           RETURN rel
           UNION
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'REQUIRES_PRECONDITION'
+          WHEN r.rule_type = 'REQUIRES_PRECONDITION'
           MERGE (source)-[rel:REQUIRES_PRECONDITION {source_document: r.source_document}]->(target)
           SET rel.applied_at = datetime()
           RETURN rel
           UNION
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'MUST_FULFILL'
+          WHEN r.rule_type = 'MUST_FULFILL'
           MERGE (source)-[rel:MUST_FULFILL {source_document: r.source_document}]->(target)
           SET rel.applied_at = datetime()
           RETURN rel
           UNION
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'IS_PROHIBITED'
+          WHEN r.rule_type = 'IS_PROHIBITED'
           MERGE (source)-[rel:IS_PROHIBITED {source_document: r.source_document}]->(target)
           SET rel.applied_at = datetime()
           RETURN rel
           UNION
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'DEPENDS_ON'
+          WHEN r.rule_type = 'DEPENDS_ON'
           MERGE (source)-[rel:DEPENDS_ON {source_document: r.source_document}]->(target)
           SET rel.applied_at = datetime()
           RETURN rel
           UNION
           WITH source, target, r
-          WITH source, target, r
-          WHERE r.rule_type = 'APPLIES_TO'
+          WHEN r.rule_type = 'APPLIES_TO'
           MERGE (source)-[rel:APPLIES_TO {source_document: r.source_document}]->(target)
           SET rel.applied_at = datetime()
           RETURN rel

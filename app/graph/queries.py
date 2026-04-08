@@ -422,74 +422,58 @@ RETURN r.rule_id AS rule_id
 APPLY_RULE_TO_GRAPH = """
 MATCH (r:PendingRule {rule_id: $rule_id})
 WHERE r.status = 'approved'
-WITH r
-CALL {
-  WITH r
-  MATCH (source)
-  WHERE source.name = $source_name
-  WITH source, r
-  MATCH (target)
-  WHERE target.name = $target_name
-  WITH source, target, r
-  CALL apoc.create.relationship(source, r.rule_type,
-    CASE WHEN r.limit IS NOT NULL THEN {limit: r.limit, source_document: r.source_document, applied_at: datetime()}
-         ELSE {source_document: r.source_document, applied_at: datetime()}
-    END, target)
-  YIELD rel
-  RETURN rel
-}
+MATCH (source)
+WHERE source.name = $source_name
+MATCH (target)
+WHERE target.name = $target_name
+CALL apoc.create.relationship(source, r.rule_type,
+  CASE WHEN r.limit IS NOT NULL THEN {limit: r.limit, source_document: r.source_document, applied_at: datetime()}
+       ELSE {source_document: r.source_document, applied_at: datetime()}
+  END, target)
+YIELD rel
 RETURN count(*) AS applied
 """
 
 APPLY_RULE_TO_GRAPH_NO_APOC = """
 MATCH (r:PendingRule {rule_id: $rule_id})
 WHERE r.status = 'approved'
-WITH r
 MATCH (source)
 WHERE source.name = $source_name
-WITH source, r
 MATCH (target)
 WHERE target.name = $target_name
-WITH source, target, r
 CALL {
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'HAS_AUTHORITY'
+  WHEN r.rule_type = 'HAS_AUTHORITY'
   MERGE (source)-[rel:HAS_AUTHORITY {source_document: r.source_document}]->(target)
   SET rel.limit = r.limit, rel.applied_at = datetime()
   RETURN rel
   UNION
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'REQUIRES_PRECONDITION'
+  WHEN r.rule_type = 'REQUIRES_PRECONDITION'
   MERGE (source)-[rel:REQUIRES_PRECONDITION {source_document: r.source_document}]->(target)
   SET rel.applied_at = datetime()
   RETURN rel
   UNION
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'MUST_FULFILL'
+  WHEN r.rule_type = 'MUST_FULFILL'
   MERGE (source)-[rel:MUST_FULFILL {source_document: r.source_document}]->(target)
   SET rel.applied_at = datetime()
   RETURN rel
   UNION
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'IS_PROHIBITED'
+  WHEN r.rule_type = 'IS_PROHIBITED'
   MERGE (source)-[rel:IS_PROHIBITED {source_document: r.source_document}]->(target)
   SET rel.applied_at = datetime()
   RETURN rel
   UNION
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'DEPENDS_ON'
+  WHEN r.rule_type = 'DEPENDS_ON'
   MERGE (source)-[rel:DEPENDS_ON {source_document: r.source_document}]->(target)
   SET rel.applied_at = datetime()
   RETURN rel
   UNION
   WITH source, target, r
-  WITH source, target, r
-  WHERE r.rule_type = 'APPLIES_TO'
+  WHEN r.rule_type = 'APPLIES_TO'
   MERGE (source)-[rel:APPLIES_TO {source_document: r.source_document}]->(target)
   SET rel.applied_at = datetime()
   RETURN rel

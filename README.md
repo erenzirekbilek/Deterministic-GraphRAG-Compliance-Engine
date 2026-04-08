@@ -1,5 +1,188 @@
 # Deterministic GraphRAG Compliance Engine
 
+## 🎯 What is Compliance?
+
+**Compliance** means ensuring that a system, company, or process follows specific rules, laws, or standards. It's about operating within legal and policy boundaries.
+
+### Real-World Compliance Examples
+
+| Regulation | What It Requires | Our System Use |
+|------------|------------------|----------------|
+| **GDPR** | Protect personal data, consent management | Extract data handling policies |
+| **KVKK** | Turkish data protection law | Validate consent procedures |
+| **ISO 27001** | Information security management | Map security policies |
+| **HIPAA** | Healthcare data privacy | Extract patient data rules |
+| **SOX** | Financial reporting controls | Verify approval hierarchies |
+| **PCI-DSS** | Payment card security | Extract payment rules |
+
+### Why Compliance Matters
+
+1. **Legal Protection** - Avoid fines and lawsuits
+2. **Reputation** - Build trust with customers
+3. **Risk Management** - Prevent data breaches
+4. **Audit Readiness** - Prove compliance anytime
+
+---
+
+## 🎯 What is Q&A (Question & Answer)?
+
+The Q&A system teaches you to:
+
+### Core Principles
+
+| Principle | Description | Example |
+|----------|-------------|---------|
+| **Avoid Unnecessary Details** | Stay focused on the question | Don't explain GDPR history when asked about data retention |
+| **Speak According to Policies** | Use company-specific rules | "Our policy states..." not "Typically..." |
+| **Avoid Risky Statements** | Don't make assumptions | "Based on stored rules..." not "I think..." |
+| **Correct Information Only** | Only use verified data | Query Neo4j, don't guess |
+
+### How Our System Implements This
+
+```
+User: "Can an intern approve $500?"
+
+❌ BAD: "I think interns can probably approve small amounts..."
+✅ GOOD: "REJECTED: No authority record found for 'intern' to perform 'approve_request'"
+
+The system:
+1. Queries Neo4j (not AI memory)
+2. Returns deterministic Yes/No
+3. Shows validation steps
+4. Provides source citations
+```
+
+---
+
+## 🎯 What Can You Use This System For?
+
+### 1. Policy Extraction & Validation
+- **Input**: Company policy documents (PDF, text)
+- **Output**: Extracted rules stored in Neo4j
+- **Use**: Ensure policies are consistent and complete
+
+### 2. Compliance Auditing  
+- **Input**: "Can a manager approve $50,000?"
+- **Output**: APPROVED/REJECTED with proof
+- **Use**: Audit trail for regulators
+
+### 3. Conflict Detection
+- **Input**: Multiple policy documents
+- **Output**: List of contradictions
+- **Use**: Find policy gaps
+
+### 4. Authority Management
+- **Input**: Organizational charts, approval matrices
+- **Output**: Clear authority hierarchy
+- **Use**: Prevent unauthorized actions
+
+### 5. Regulatory Mapping
+- **Input**: Regulation texts (GDPR, ISO, etc.)
+- **Output**: Extracted requirements
+- **Use**: Gap analysis
+
+---
+
+## 🎯 Project Components Explained
+
+### 1. Rule Manager (Extraction → Review → Apply)
+
+**Why we built it**: AI extraction isn't perfect. Humans need to review before rules go live.
+
+**What it does**:
+1. **Extract**: AI reads policy text → finds rules
+2. **Review**: Human approves/rejects each rule
+3. **Apply**: Approved rules → Neo4j knowledge base
+
+**Technologies**:
+- **React**: Interactive UI for rule review
+- **FastAPI**: REST endpoints for CRUD operations
+- **Neo4j**: Graph storage for rules and relationships
+
+### 2. Text-to-Ontology Engine
+
+**Why we built it**: Raw text isn't structured. We need entities + relationships.
+
+**What it does**:
+1. **Extract**: LLM finds entities (Party, Action, etc.)
+2. **Validate**: Check against ontology schema
+3. **Store**: Valid relationships → Neo4j
+
+**Technologies**:
+- **LLM Adapters**: Groq, MiniMax, Gemini, HuggingFace
+- **Pydantic**: Data validation
+- **Neo4j**: Graph database
+
+### 3. Compliance Q&A
+
+**Why we built it**: Users need clear Yes/No answers, not "maybe" from AI.
+
+**What it does**:
+1. **Parse**: Extract party + action + amount from question
+2. **Query**: Check Neo4j (not AI) for authority
+3. **Answer**: Deterministic APPROVED/REJECTED
+4. **Explain**: Show validation steps
+
+**Technologies**:
+- **Deterministic Query Service**: Pure Neo4j queries (no AI guessing)
+- **LLM Translation**: Only for human-readable output
+- **Graph Visualization**: Show which nodes/edges were used
+
+### 4. Conflict Detection
+
+**Why we built it**: Multiple documents may have contradictory rules.
+
+**What it does**:
+1. **Scan**: Check all rules in Neo4j
+2. **Compare**: Find overlapping authorities
+3. **Alert**: Flag critical conflicts
+
+**Conflict Types**:
+- **Authority Conflicts**: Manager has $10K and $5K limit
+- **Prohibition Conflicts**: Manager can AND cannot do something
+- **Hierarchy Conflicts**: Intern > Manager approval exists
+
+---
+
+## 🎯 Why We Used These Technologies
+
+### Backend: FastAPI
+
+| Reason | Explanation |
+|--------|-------------|
+| **Fast** | Async support for high concurrency |
+| **Easy** | Auto-generated API docs |
+| **Type Safety** | Pydantic integration |
+| **Python** | Great LLM ecosystem |
+
+### Database: Neo4j
+
+| Reason | Explanation |
+|--------|-------------|
+| **Graph Native** | Relationships are first-class citizens |
+| **Query Power** | Cypher is powerful for hierarchies |
+| **Visualization** | Easy to graph relationships |
+| **Fast Queries** | Optimized for connected data |
+
+### LLM Providers
+
+| Provider | Why | Best For |
+|----------|-----|----------|
+| **Groq** | Fast inference, free tier | Development |
+| **MiniMax** | Good Chinese/English | Multilingual |
+| **Gemini** | Google quality | Complex reasoning |
+| **HuggingFace** | Open models | Privacy/Offline |
+
+### Frontend: React + Tailwind + Framer Motion
+
+| Technology | Why |
+|------------|-----|
+| **React** | Component-based, huge ecosystem |
+| **Tailwind** | Fast styling, consistent design |
+| **Framer Motion** | Smooth animations for canvas |
+
+---
+
 ## 🎯 Aim of the Project
 
 The **Deterministic GraphRAG Compliance Engine** addresses a critical problem in AI-powered compliance: **hallucination and lack of verification**.

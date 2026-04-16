@@ -25,7 +25,7 @@ def get_neo4j():
     return neo4j
 
 
-@router.post("/extract", response_model=PendingRulesResponse)
+@router.post("/rules/extract", response_model=PendingRulesResponse)
 async def extract_rules_from_text(
     request: RuleExtractionRequest,
     service=Depends(get_rule_service),
@@ -47,18 +47,19 @@ async def extract_rules_from_text(
     }
 
 
-@router.post("/extract/pdf")
+@router.post("/rules/extract/pdf")
 async def extract_rules_from_pdf(
     file: UploadFile = File(...),
     service=Depends(get_rule_service),
 ):
-    if not file.filename.lower().endswith((".pdf", ".txt", ".md", ".docx")):
+    if file.filename is None or not file.filename.lower().endswith((".pdf", ".txt", ".md", ".docx")):
         raise HTTPException(status_code=400, detail="Unsupported file type. Use PDF, TXT, MD, or DOCX.")
 
     content = await file.read()
     text = ""
 
-    if file.filename.lower().endswith(".pdf"):
+    filename = file.filename or ""
+    if filename.lower().endswith(".pdf"):
         try:
             from pypdf import PdfReader
             import io
@@ -66,7 +67,7 @@ async def extract_rules_from_pdf(
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
         except ImportError:
             raise HTTPException(status_code=500, detail="pypdf not installed")
-    elif file.filename.lower().endswith(".docx"):
+    elif filename.lower().endswith(".docx"):
         try:
             from docx import Document
             import io

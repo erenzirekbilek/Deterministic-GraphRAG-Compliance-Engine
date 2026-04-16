@@ -61,7 +61,7 @@ function RuleManager({ addLog, updateStats }) {
     addLog('RULE_EXTRACT', 'Extracting rules from text...');
 
     try {
-      const res = await fetch('/api/v1/extract', {
+      const res = await fetch('/api/v1/rules/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, document_name: `text-${Date.now()}` }),

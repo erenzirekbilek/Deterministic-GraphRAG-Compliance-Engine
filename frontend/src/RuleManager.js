@@ -150,7 +150,7 @@ function RuleManager({ addLog, updateStats }) {
       const res = await fetch('/api/v1/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(document_id ? { document_id: document_id } : {}),
+        body: JSON.stringify(currentDoc ? { document_id: currentDoc } : {}),
       });
       const data = await res.json();
       setApplyResult(data);

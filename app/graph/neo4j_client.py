@@ -2,7 +2,6 @@ import logging
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 import uuid
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,14 @@ class Neo4jClient:
                 return dict(record)
             return {"is_valid": False, "valid_sources": [], "valid_targets": []}
 
-    def save_extracted_entity(self, document_id: str, name: str, entity_type: str, mention: str, confidence: float):
+    def save_extracted_entity(
+        self,
+        document_id: str,
+        name: str,
+        entity_type: str,
+        mention: str,
+        confidence: float,
+    ):
         """Save an extracted entity to Neo4j as BOTH ExtractedEntity and its actual type."""
         label_map = {
             "Authority": "Authority",
@@ -126,11 +132,24 @@ class Neo4jClient:
         MERGE (ee)-[:EXTRACTED_AS]->(e)
         """
         with self.driver.session() as session:
-            session.run(query, document_id=document_id, name=name, entity_type=entity_type,
-                       mention=mention, confidence=confidence)
+            session.run(
+                query,
+                document_id=document_id,
+                name=name,
+                entity_type=entity_type,
+                mention=mention,
+                confidence=confidence,
+            )
 
-    def save_extracted_relationship(self, document_id: str, source: str, target: str,
-                                      relationship: str, justification: str, limit: int = None):
+    def save_extracted_relationship(
+        self,
+        document_id: str,
+        source: str,
+        target: str,
+        relationship: str,
+        justification: str,
+        limit: int = None,
+    ):
         """Save an extracted relationship as BOTH the actual relationship type and EXTRACTED_RELATIONSHIP."""
         relationship_type = relationship
         query = f"""
@@ -148,8 +167,15 @@ class Neo4jClient:
         RETURN count(*) AS created
         """
         with self.driver.session() as session:
-            result = session.run(query, document_id=document_id, source=source, target=target,
-                       relationship=relationship, justification=justification, limit=limit)
+            result = session.run(
+                query,
+                document_id=document_id,
+                source=source,
+                target=target,
+                relationship=relationship,
+                justification=justification,
+                limit=limit,
+            )
             return result.single()
 
     def get_document_entities(self, document_id: str) -> list[dict]:
@@ -175,7 +201,9 @@ class Neo4jClient:
             results = session.run(query, document_id=document_id)
             return [dict(record) for record in results]
 
-    def mark_relationship_validated(self, document_id: str, source: str, target: str, is_valid: bool, reason: str):
+    def mark_relationship_validated(
+        self, document_id: str, source: str, target: str, is_valid: bool, reason: str
+    ):
         """Mark a relationship as validated with result."""
         query = """
         MATCH (e1:ExtractedEntity {document_id: $document_id, name: $source})-[r:EXTRACTED_RELATIONSHIP]->(e2:ExtractedEntity {name: $target})
@@ -184,8 +212,14 @@ class Neo4jClient:
             r.validation_reason = $reason
         """
         with self.driver.session() as session:
-            session.run(query, document_id=document_id, source=source, target=target,
-                       is_valid=is_valid, reason=reason)
+            session.run(
+                query,
+                document_id=document_id,
+                source=source,
+                target=target,
+                is_valid=is_valid,
+                reason=reason,
+            )
 
     def clear_document(self, document_id: str):
         """Clear all extracted entities and relationships for a document."""
@@ -196,8 +230,19 @@ class Neo4jClient:
         with self.driver.session() as session:
             session.run(query, document_id=document_id)
 
-    def save_pending_rule(self, rule_id, rule_type, source_entity, target_entity,
-                          description, limit, confidence, source_text, source_document, source_page):
+    def save_pending_rule(
+        self,
+        rule_id,
+        rule_type,
+        source_entity,
+        target_entity,
+        description,
+        limit,
+        confidence,
+        source_text,
+        source_document,
+        source_page,
+    ):
         query = """
         MERGE (r:PendingRule {rule_id: $rule_id})
         SET r.rule_type = $rule_type,
@@ -214,11 +259,19 @@ class Neo4jClient:
         RETURN r.rule_id AS rule_id
         """
         with self.driver.session() as session:
-            result = session.run(query, rule_id=rule_id, rule_type=rule_type,
-                                 source_entity=source_entity, target_entity=target_entity,
-                                 description=description, limit=limit, confidence=confidence,
-                                 source_text=source_text, source_document=source_document,
-                                 source_page=source_page)
+            result = session.run(
+                query,
+                rule_id=rule_id,
+                rule_type=rule_type,
+                source_entity=source_entity,
+                target_entity=target_entity,
+                description=description,
+                limit=limit,
+                confidence=confidence,
+                source_text=source_text,
+                source_document=source_document,
+                source_page=source_page,
+            )
             record = result.single()
             return record["rule_id"] if record else None
 
@@ -288,9 +341,15 @@ class Neo4jClient:
                     "pending": record["pending"],
                     "approved": record["approved"],
                     "rejected": record["rejected"],
-                    "documents": record["documents"]
+                    "documents": record["documents"],
                 }
-            return {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "documents": []}
+            return {
+                "total": 0,
+                "pending": 0,
+                "approved": 0,
+                "rejected": 0,
+                "documents": [],
+            }
 
     def _ensure_node_exists(self, label, name, description=""):
         query = f"""
@@ -301,7 +360,9 @@ class Neo4jClient:
         with self.driver.session() as session:
             session.run(query, name=name, description=description)
 
-    def apply_rule_to_graph(self, rule_id, source_name, target_name, rule_type, limit=None):
+    def apply_rule_to_graph(
+        self, rule_id, source_name, target_name, rule_type, limit=None
+    ):
         query = """
         MATCH (r:PendingRule {rule_id: $rule_id})
         WHERE r.status = 'approved'
@@ -349,8 +410,9 @@ class Neo4jClient:
         RETURN count(*) AS applied
         """
         with self.driver.session() as session:
-            result = session.run(query, rule_id=rule_id, source_name=source_name,
-                                 target_name=target_name)
+            result = session.run(
+                query, rule_id=rule_id, source_name=source_name, target_name=target_name
+            )
             record = result.single()
             return record["applied"] if record else 0
 

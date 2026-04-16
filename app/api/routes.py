@@ -1,9 +1,16 @@
 import logging
+import time
+from typing import List, Optional, Dict
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
 from app.models.schemas import (
-    QuestionRequest, ComplianceResponse, HealthResponse,
-    TextExtractionRequest, OntologyExtractionResponse, OntologySchemaResponse,
-    ConflictDetectionResponse
+    QuestionRequest,
+    ComplianceResponse,
+    HealthResponse,
+    TextExtractionRequest,
+    OntologyExtractionResponse,
+    OntologySchemaResponse,
+    ConflictDetectionResponse,
 )
 from app.services.graphrag_service import GraphRAGService
 from app.services.ontology_extraction_service import OntologyExtractionService
@@ -16,21 +23,25 @@ router = APIRouter()
 
 def get_graphrag_service() -> GraphRAGService:
     from app.main import graphrag_service
+
     return graphrag_service
 
 
 def get_ontology_service() -> OntologyExtractionService:
     from app.main import ontology_service
+
     return ontology_service
 
 
 def get_deterministic_service() -> DeterministicComplianceService:
     from app.main import deterministic_service
+
     return deterministic_service
 
 
 def get_conflict_service() -> ConflictDetectionService:
     from app.main import conflict_service
+
     return conflict_service
 
 
@@ -44,20 +55,18 @@ async def health_check(service: GraphRAGService = Depends(get_graphrag_service))
         neo4j_status = "disconnected"
 
     return HealthResponse(
-        status="ok",
-        neo4j=neo4j_status,
-        llm_provider=service.llm_provider_name
+        status="ok", neo4j=neo4j_status, llm_provider=service.llm_provider_name
     )
 
 
 @router.post("/ask", response_model=ComplianceResponse, tags=["Compliance"])
 async def ask_compliance_question(
     request: QuestionRequest,
-    service: DeterministicComplianceService = Depends(get_deterministic_service)
+    service: DeterministicComplianceService = Depends(get_deterministic_service),
 ):
     """
-    Submit a compliance question. 
-    
+    Submit a compliance question.
+
     DETERMINISTIC MODE: First queries Neo4j for a mathematically definite YES/NO,
     then uses LLM ONLY to translate the result to human-readable language.
     """
@@ -73,7 +82,7 @@ async def ask_compliance_question(
 
 @router.get("/knowledge-base", tags=["Knowledge Base"])
 async def get_knowledge_base(
-    service: DeterministicComplianceService = Depends(get_deterministic_service)
+    service: DeterministicComplianceService = Depends(get_deterministic_service),
 ):
     """Get summary of what the system knows (parties, actions, limits)."""
     try:
@@ -85,8 +94,7 @@ async def get_knowledge_base(
 
 @router.get("/rules", tags=["Compliance"])
 async def list_rules(
-    topic: str = "approval",
-    service: GraphRAGService = Depends(get_graphrag_service)
+    topic: str = "approval", service: GraphRAGService = Depends(get_graphrag_service)
 ):
     """List all rules in the graph for a given topic."""
     rules = service.graph.get_rules_by_topic(topic)
@@ -95,26 +103,25 @@ async def list_rules(
 
 @router.get("/ontology", response_model=OntologySchemaResponse, tags=["Ontology"])
 async def get_ontology_schema(
-    service: OntologyExtractionService = Depends(get_ontology_service)
+    service: OntologyExtractionService = Depends(get_ontology_service),
 ):
     """Get the ontology schema (entity types and relationship types)."""
     entity_types = service.graph.get_ontology_schema()
     relationship_types = service.graph.get_relationship_types()
-    
+
     return OntologySchemaResponse(
-        entity_types=entity_types,
-        relationship_types=relationship_types
+        entity_types=entity_types, relationship_types=relationship_types
     )
 
 
 @router.post("/extract", response_model=OntologyExtractionResponse, tags=["Ontology"])
 async def extract_ontology(
     request: TextExtractionRequest,
-    service: OntologyExtractionService = Depends(get_ontology_service)
+    service: OntologyExtractionService = Depends(get_ontology_service),
 ):
     """
     Extract entities and relationships from text and map to ontology.
-    
+
     The system will:
     1. Use LLM to extract entities and relationships from the text
     2. Validate each relationship against the ontology schema
@@ -122,38 +129,49 @@ async def extract_ontology(
     4. Store valid extractions in Neo4j
     """
     logger.info("Extracting ontology from text (document_id=%s)", request.document_id)
-    
+
     try:
         result = service.extract_from_text(request.text, request.document_id)
-        
+
         status = "partial" if result.get("rejected") else "success"
         if result.get("rejected"):
             status = "rejected" if not result.get("relationships") else "partial"
-        
+
         return OntologyExtractionResponse(
             document_id=result["document_id"],
             entities=result["entities"],
             relationships=result["relationships"],
             validation=result["validation"],
             rejected=result["rejected"],
-            status=status
+            status=status,
         )
     except Exception as e:
         error_msg = str(e)
         logger.error("Error extracting ontology: %s", error_msg)
-        
-        if "quota" in error_msg.lower() or "rate limit" in error_msg.lower() or "429" in error_msg:
-            raise HTTPException(status_code=503, detail="API quota reached. Please try again later or switch to a different LLM provider.")
-        elif "request failed" in error_msg.lower() or "unavailable" in error_msg.lower():
-            raise HTTPException(status_code=503, detail="LLM service temporarily unavailable. Please try again later.")
+
+        if (
+            "quota" in error_msg.lower()
+            or "rate limit" in error_msg.lower()
+            or "429" in error_msg
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="API quota reached. Please try again later or switch to a different LLM provider.",
+            )
+        elif (
+            "request failed" in error_msg.lower() or "unavailable" in error_msg.lower()
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="LLM service temporarily unavailable. Please try again later.",
+            )
         else:
             raise HTTPException(status_code=500, detail=error_msg)
 
 
 @router.get("/extraction/{document_id}", tags=["Ontology"])
 async def get_extraction(
-    document_id: str,
-    service: OntologyExtractionService = Depends(get_ontology_service)
+    document_id: str, service: OntologyExtractionService = Depends(get_ontology_service)
 ):
     """Get the extracted ontology for a specific document."""
     try:
@@ -164,13 +182,15 @@ async def get_extraction(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/conflicts", response_model=ConflictDetectionResponse, tags=["Conflict Detection"])
+@router.get(
+    "/conflicts", response_model=ConflictDetectionResponse, tags=["Conflict Detection"]
+)
 async def detect_all_conflicts(
-    service: ConflictDetectionService = Depends(get_conflict_service)
+    service: ConflictDetectionService = Depends(get_conflict_service),
 ):
     """
     Detect all conflicts in the database.
-    
+
     Scans for:
     - Hierarchical conflicts: Multiple parties have authority over same action
     - Limit conflicts: Same party has different limits for same action
@@ -186,8 +206,7 @@ async def detect_all_conflicts(
 
 @router.get("/conflicts/entity/{entity_name}", tags=["Conflict Detection"])
 async def detect_entity_conflicts(
-    entity_name: str,
-    service: ConflictDetectionService = Depends(get_conflict_service)
+    entity_name: str, service: ConflictDetectionService = Depends(get_conflict_service)
 ):
     """Detect conflicts involving a specific entity."""
     try:
@@ -199,12 +218,65 @@ async def detect_entity_conflicts(
 
 @router.get("/conflicts/document/{document_id}", tags=["Conflict Detection"])
 async def detect_document_conflicts(
-    document_id: str,
-    service: ConflictDetectionService = Depends(get_conflict_service)
+    document_id: str, service: ConflictDetectionService = Depends(get_conflict_service)
 ):
     """Detect conflicts involving a specific document."""
     try:
         return service.detect_conflicts_for_document(document_id)
     except Exception as e:
         logger.error("Error detecting document conflicts: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BatchExtractionRequest(BaseModel):
+    documents: List[Dict[str, str]]
+
+
+class BatchExtractionResponse(BaseModel):
+    batch_id: str
+    total: int
+    completed: int
+    failed: int
+    results: List[Dict]
+
+
+batch_processor = None
+
+
+def get_ontology_service() -> OntologyExtractionService:
+    from app.main import ontology_service
+
+    return ontology_service
+
+
+@router.post(
+    "/extract/batch", response_model=BatchExtractionResponse, tags=["Ontology"]
+)
+async def extract_batch(
+    request: BatchExtractionRequest,
+    service: OntologyExtractionService = Depends(get_ontology_service),
+):
+    """Extract ontology from multiple documents in batch."""
+    global batch_processor
+
+    if batch_processor is None:
+        from app.services.batch_processor import SimpleBatchProcessor
+
+        batch_processor = SimpleBatchProcessor(service)
+
+    try:
+        texts = [doc.get("content", "") for doc in request.documents]
+        doc_ids = [doc.get("document_id") for doc in request.documents]
+
+        results = batch_processor.process_batch(texts, doc_ids)
+
+        return {
+            "batch_id": f"batch-{int(time.time())}",
+            "total": len(request.documents),
+            "completed": sum(1 for r in results if r.get("status") == "success"),
+            "failed": sum(1 for r in results if r.get("status") == "failed"),
+            "results": results,
+        }
+    except Exception as e:
+        logger.error("Error processing batch: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))

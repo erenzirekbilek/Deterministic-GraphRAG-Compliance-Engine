@@ -9,6 +9,7 @@ from app.api.routes import router
 from app.api.pdf_routes import router as pdf_router
 from app.api.rule_routes import router as rule_router
 from app.graph.neo4j_client import Neo4jClient
+from app.graph.cache import CachedNeo4jClient
 from app.graph.queries import SEED_RULES, SEED_ONTOLOGY, SEED_KNOWLEDGE_BASE
 from app.services.graphrag_service import GraphRAGService
 from app.services.validation_service import ValidationService
@@ -20,11 +21,13 @@ from app.core.gemini_adapter import GeminiAdapter
 from app.core.groq_adapter import GroqAdapter
 from app.core.huggingface_adapter import HuggingFaceAdapter
 from app.core.minimax_adapter import MiniMaxAdapter
+from app.middleware.request_logging import RequestLoggingMiddleware
+from app.middleware.rate_limiter import RateLimiter
 
 load_dotenv()
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -47,21 +50,32 @@ def build_llm_adapter():
     elif provider == "minimax":
         return MiniMaxAdapter(api_key=os.getenv("MINIMAX_API_KEY"))
     else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {provider}. Use 'gemini', 'groq', 'huggingface', or 'minimax'.")
+        raise ValueError(
+            f"Unknown LLM_PROVIDER: {provider}. Use 'gemini', 'groq', 'huggingface', or 'minimax'."
+        )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global graphrag_service, ontology_service, deterministic_service, conflict_service, rule_extraction_service, neo4j
+    global \
+        graphrag_service, \
+        ontology_service, \
+        deterministic_service, \
+        conflict_service, \
+        rule_extraction_service, \
+        neo4j
 
     logger.info("Starting up Deterministic GraphRAG Compliance Engine...")
 
     graph = Neo4jClient(
         uri=os.getenv("NEO4J_URI"),
         user=os.getenv("NEO4J_USER"),
-        password=os.getenv("NEO4J_PASSWORD")
+        password=os.getenv("NEO4J_PASSWORD"),
     )
-    neo4j = graph
+
+    cache_ttl = int(os.getenv("CACHE_TTL", "300"))
+    cache_enabled = os.getenv("CACHE_ENABLED", "true").lower() == "true"
+    neo4j = CachedNeo4jClient(graph, ttl=cache_ttl, enabled=cache_enabled)
 
     existing = graph.get_all_rules()
     if not existing:
@@ -91,28 +105,15 @@ async def lifespan(app: FastAPI):
 
     validation = ValidationService(graph=graph)
 
-    graphrag_service = GraphRAGService(
-        llm=llm,
-        graph=graph,
-        validation=validation
-    )
+    graphrag_service = GraphRAGService(llm=llm, graph=graph, validation=validation)
 
-    ontology_service = OntologyExtractionService(
-        llm=llm,
-        graph=graph
-    )
+    ontology_service = OntologyExtractionService(llm=llm, graph=graph)
 
-    deterministic_service = DeterministicComplianceService(
-        llm=llm,
-        graph=graph
-    )
+    deterministic_service = DeterministicComplianceService(llm=llm, graph=graph)
 
     conflict_service = ConflictDetectionService(graph=graph)
 
-    rule_extraction_service = RuleExtractionService(
-        llm=llm,
-        neo4j=graph
-    )
+    rule_extraction_service = RuleExtractionService(llm=llm, neo4j=graph)
 
     logger.info("GraphRAG service ready. LLM provider: %s", os.getenv("LLM_PROVIDER"))
     logger.info("Ontology extraction service ready.")
@@ -128,9 +129,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Deterministic GraphRAG Compliance Engine",
     description="Text-to-Ontology extraction with deterministic validation. "
-                "Maps legal/compliance text to pre-defined schema in Neo4j.",
+    "Maps legal/compliance text to pre-defined schema in Neo4j.",
     version="0.2.0-ontology",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -141,9 +142,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+rate_limit_rpm = int(os.getenv("RATE_LIMIT_RPM", "60"))
+rate_limit_rph = int(os.getenv("RATE_LIMIT_RPH", "1000"))
+app.add_middleware(
+    RateLimiter, requests_per_minute=rate_limit_rpm, requests_per_hour=rate_limit_rph
+)
+
+middleware = RequestLoggingMiddleware(app, log_requests=True)
+
 app.include_router(router, prefix="/api/v1")
 app.include_router(pdf_router, prefix="/api/v1")
 app.include_router(rule_router, prefix="/api/v1")
+
+
+@app.get("/metrics", tags=["System"])
+def get_metrics():
+    """Get request metrics."""
+    return middleware.get_metrics()
+
+
+@app.post("/metrics/reset", tags=["System"])
+def reset_metrics():
+    """Reset request metrics."""
+    middleware.reset_metrics()
+    return {"status": "metrics reset"}
 
 
 @app.get("/", tags=["System"])
@@ -156,6 +178,6 @@ def root():
             "Text-to-Ontology extraction",
             "Entity mapping to schema",
             "Relationship validation against ontology",
-            "Rejection of invalid extractions"
-        ]
+            "Rejection of invalid extractions",
+        ],
     }

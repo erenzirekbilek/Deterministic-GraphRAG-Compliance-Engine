@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form
+import json
+import csv
+import io
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, Response
+from typing import Optional
 from app.models.schemas import (
     RuleExtractionRequest,
     RuleReviewUpdate,
@@ -17,11 +21,13 @@ rule_service = None
 
 def get_rule_service():
     from app.main import rule_extraction_service
+
     return rule_extraction_service
 
 
 def get_neo4j():
     from app.main import neo4j
+
     return neo4j
 
 
@@ -52,8 +58,12 @@ async def extract_rules_from_pdf(
     file: UploadFile = File(...),
     service=Depends(get_rule_service),
 ):
-    if file.filename is None or not file.filename.lower().endswith((".pdf", ".txt", ".md", ".docx")):
-        raise HTTPException(status_code=400, detail="Unsupported file type. Use PDF, TXT, MD, or DOCX.")
+    if file.filename is None or not file.filename.lower().endswith(
+        (".pdf", ".txt", ".md", ".docx")
+    ):
+        raise HTTPException(
+            status_code=400, detail="Unsupported file type. Use PDF, TXT, MD, or DOCX."
+        )
 
     content = await file.read()
     text = ""
@@ -63,6 +73,7 @@ async def extract_rules_from_pdf(
         try:
             from pypdf import PdfReader
             import io
+
             reader = PdfReader(io.BytesIO(content))
             text = "\n".join(page.extract_text() or "" for page in reader.pages)
         except ImportError:
@@ -71,6 +82,7 @@ async def extract_rules_from_pdf(
         try:
             from docx import Document
             import io
+
             doc = Document(io.BytesIO(content))
             text = "\n".join(p.text for p in doc.paragraphs)
         except ImportError:
@@ -79,7 +91,9 @@ async def extract_rules_from_pdf(
         text = content.decode("utf-8")
 
     if not text.strip():
-        raise HTTPException(status_code=400, detail="File is empty or contains no text.")
+        raise HTTPException(
+            status_code=400, detail="File is empty or contains no text."
+        )
 
     result = service.extract_rules_from_text(
         text=text,
@@ -194,3 +208,91 @@ async def delete_pending_rule(rule_id: str, neo4j=Depends(get_neo4j)):
 @router.get("/stats")
 async def get_rule_stats(neo4j=Depends(get_neo4j)):
     return neo4j.get_pending_rules_stats()
+
+
+@router.get("/export")
+async def export_rules(
+    format: str = "json",
+    status: Optional[str] = None,
+    neo4j=Depends(get_neo4j),
+):
+    """Export rules as JSON or CSV."""
+    rules = neo4j.get_pending_rules()
+
+    if status:
+        rules = [r for r in rules if r.get("status") == status]
+
+    if format == "csv":
+        if not rules:
+            raise HTTPException(status_code=404, detail="No rules to export")
+
+        output = io.StringIO()
+        fieldnames = [
+            "id",
+            "rule_type",
+            "source_entity",
+            "target_entity",
+            "description",
+            "limit",
+            "confidence",
+            "source_text",
+            "source_document",
+            "status",
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for rule in rules:
+            writer.writerow({k: rule.get(k, "") for k in fieldnames})
+
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=rules_export.csv"},
+        )
+
+    return {"rules": rules, "count": len(rules), "format": "json"}
+
+
+@router.post("/import")
+async def import_rules(
+    file: UploadFile = File(...),
+    neo4j=Depends(get_neo4j),
+):
+    """Import rules from JSON file."""
+    content = await file.read()
+
+    if not file.filename.lower().endswith(".json"):
+        raise HTTPException(status_code=400, detail="Only JSON files supported")
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON file")
+
+    if not isinstance(data, dict) or "rules" not in data:
+        raise HTTPException(status_code=400, detail="JSON must contain 'rules' array")
+
+    imported = 0
+    errors = []
+
+    for rule_data in data["rules"]:
+        try:
+            rule_id = neo4j.generate_rule_id()
+            neo4j.save_pending_rule(
+                rule_id=rule_id,
+                rule_type=rule_data.get("rule_type", "HAS_AUTHORITY"),
+                source_entity=rule_data.get("source_entity"),
+                target_entity=rule_data.get("target_entity"),
+                description=rule_data.get("description", ""),
+                limit=rule_data.get("limit"),
+                confidence=rule_data.get("confidence", 0.8),
+                source_text=rule_data.get("source_text", "Imported from file"),
+                source_document=rule_data.get("source_document", "import"),
+                source_page=rule_data.get("source_page"),
+            )
+            imported += 1
+        except Exception as e:
+            errors.append(f"Failed to import rule: {str(e)}")
+
+    return {"imported": imported, "errors": errors}
